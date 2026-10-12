@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RipetiFlow · Registro</title>
+<meta name="description" content="Specimen del sistema visivo «Registro» di RipetiFlow: tipografia, colori, libro mastro, Matita, mock mobile.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,300..700&family=Schibsted+Grotesk:wght@400..700&display=swap" rel="stylesheet">
+<script>
+  (function(){var h=location.hash.replace('#','');var t=null;try{t=localStorage.getItem('rf-theme')}catch(e){}
+  var v=(h==='dark'||h==='light')?h:t; if(v==='dark'||v==='light') document.documentElement.setAttribute('data-theme',v);})();
+</script>
+<style>
+/* =====================================================================
+   RipetiFlow — Design tokens «Registro» v1.0
+   Concetto: inchiostro e matita su carta rigata.
+   Documentazione: docs/design/02-design-system.md
+
+   Uso (Tailwind v4):
+     @import "tailwindcss";
+     @import "./tokens.css";
+   I token runtime (--rf-*) funzionano anche senza Tailwind.
+
+   Tema: chiaro di default su :root.
+     - Scuro automatico con prefers-color-scheme se <html> NON ha data-theme="light".
+     - Forzato con <html data-theme="dark"> / <html data-theme="light">.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Token runtime — tema chiaro (default)
+   --------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* Carta (superfici) */
+  --rf-paper: #f4f1e8;          /* fondo pagina */
+  --rf-paper-raised: #fbfaf6;   /* foglio sopra il fondo: righe, sheet, popover */
+  --rf-paper-sunk: #eae5d8;     /* incavi: campi in sola lettura, barra Matita a riposo */
+  --rf-rule: #d9d2c2;           /* righe del registro (decorative, 1px) */
+  --rf-rule-strong: #b9b09d;    /* filetti di sezione, intestazioni colonna */
+  --rf-control: #8a8170;        /* bordi di input/controlli — 3,41:1 su carta */
+  --rf-margin: #c9776f;         /* linea di margine rossa del registro (decorativa) */
+
+  /* Inchiostro (testo) */
+  --rf-ink: #1a1c23;            /* testo primario, bottone primario — 15,06:1 */
+  --rf-ink-2: #454952;          /* testo secondario — 7,99:1 */
+  --rf-ink-3: #62666f;          /* meta, didascalie — 5,10:1 (4,58:1 su sunk) */
+  --rf-on-ink: #f4f1e8;         /* testo su fondo inchiostro */
+
+  /* Semantica contabile */
+  --rf-debito: #a3302a;         /* "ti deve" — rosso registro, 6,17:1 */
+  --rf-debito-wash: #f4ded8;    /* fondo badge debito — testo debito 5,40:1 */
+  --rf-credito: #1d4c9e;        /* "in credito" — blu matita, 7,21:1 */
+  --rf-credito-wash: #dfe6f3;   /* fondo badge credito — testo credito 6,49:1 */
+  --rf-pari: var(--rf-ink-2);   /* saldo zero: nessun colore */
+
+  /* Matita (bozze proposte dall'assistente) */
+  --rf-pencil: #5a606a;         /* testo grafite — 5,61:1 */
+  --rf-pencil-line: #7e848e;    /* bordo tratteggiato bozza — 3,33:1 */
+  --rf-pencil-hatch: rgb(90 96 106 / 0.075); /* tratteggio 45° di sfondo */
+
+  /* Evidenziatore (oggi, adesso, token riconosciuti, focus) */
+  --rf-highlight: #f5e27a;      /* solo come fondo; testo sopra = --rf-ink (13,00:1) */
+
+  /* Focus: contorno inchiostro + alone evidenziatore */
+  --rf-focus-ring: var(--rf-ink);
+  --rf-focus-halo: var(--rf-highlight);
+
+  /* Stati UI */
+  --rf-danger: var(--rf-debito);
+  --rf-scrim: rgb(26 28 35 / 0.36);
+  --rf-shadow-popover: 0 10px 28px -14px rgb(26 28 35 / 0.30);
+  --rf-shadow-sheet: 0 28px 64px -28px rgb(26 28 35 / 0.42);
+
+  /* Tipografia — famiglie (nomi Fontsource + fallback Google Fonts) */
+  --rf-font-display: "Literata Variable", "Literata", Georgia, "Times New Roman", serif;
+  --rf-font-ui: "Schibsted Grotesk Variable", "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rf-font-money: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Tipografia — scala (size / line-height). Valori mobile; desktop in @media sotto */
+  --rf-text-display-xl: 2.5rem;      --rf-leading-display-xl: 2.75rem;   /* 40/44 → 64/68 */
+  --rf-text-display-l: 2.125rem;     --rf-leading-display-l: 2.375rem;   /* 34/38 → 44/48 */
+  --rf-text-display-m: 1.75rem;      --rf-leading-display-m: 2rem;       /* 28/32 → 32/38 */
+  --rf-text-display-s: 1.375rem;     --rf-leading-display-s: 1.75rem;    /* 22/28 → 24/30 */
+  --rf-text-title: 1.125rem;         --rf-leading-title: 1.5rem;         /* 18/24 */
+  --rf-text-body: 1rem;              --rf-leading-body: 1.5rem;          /* 16/24 */
+  --rf-text-body-s: 0.875rem;        --rf-leading-body-s: 1.25rem;       /* 14/20 */
+  --rf-text-caption: 0.75rem;        --rf-leading-caption: 1rem;         /* 12/16 */
+  --rf-text-money-l: 1.5rem;         --rf-leading-money-l: 1.75rem;      /* 24/28 */
+  --rf-text-money: 0.9375rem;        --rf-leading-money: 1.25rem;        /* 15/20 */
+  --rf-text-money-s: 0.8125rem;      --rf-leading-money-s: 1rem;         /* 13/16 */
+  --rf-text-voice: 1.0625rem;        --rf-leading-voice: 1.625rem;       /* 17/26 Matita */
+  --rf-tracking-display: -0.012em;
+  --rf-tracking-caption: 0.06em;     /* solo intestazioni di colonna MAIUSCOLE */
+
+  /* Spaziatura (base 4px) */
+  --rf-space-1: 0.25rem;  /*  4 */
+  --rf-space-2: 0.5rem;   /*  8 */
+  --rf-space-3: 0.75rem;  /* 12 */
+  --rf-space-4: 1rem;     /* 16 */
+  --rf-space-5: 1.25rem;  /* 20 */
+  --rf-space-6: 1.5rem;   /* 24 */
+  --rf-space-8: 2rem;     /* 32 */
+  --rf-space-10: 2.5rem;  /* 40 */
+  --rf-space-12: 3rem;    /* 48 */
+  --rf-space-16: 4rem;    /* 64 */
+  --rf-space-20: 5rem;    /* 80 */
+
+  /* Misure strutturali */
+  --rf-touch: 2.75rem;          /* 44px: target minimo */
+  --rf-control-h: 2.75rem;      /* 44px: input, bottoni */
+  --rf-control-h-sm: 2.25rem;   /* 36px: solo desktop, mai su mobile */
+  --rf-row-h: 3.5rem;           /* 56px: riga registro mobile */
+  --rf-row-h-dense: 3rem;       /* 48px: riga registro desktop */
+  --rf-gutter: 1rem;            /* 16px mobile */
+  --rf-content-max: 75rem;      /* 1200px */
+  --rf-ledger-max: 55rem;       /* 880px */
+  --rf-aside-w: 21rem;          /* 336px colonna frontespizio studente */
+  --rf-tabbar-h: 4rem;          /* 64px + safe-area */
+
+  /* Raggi: angoli quasi vivi, niente rounded-2xl */
+  --rf-radius-0: 0;
+  --rf-radius-1: 3px;           /* bottoni, input, badge */
+  --rf-radius-2: 6px;           /* popover, dialog, card di Matita */
+  --rf-radius-sheet: 14px;      /* solo angoli superiori dei bottom sheet mobile */
+
+  /* Righe e filetti */
+  --rf-hairline: 1px;
+  --rf-rule-section: 2px;       /* filetto inchiostro sopra le sezioni */
+  --rf-rule-total: 3px;         /* doppia riga sotto i totali (border-style: double) */
+  --rf-dash: 6px;               /* passo tratteggio bozze (via background, non border) */
+
+  /* Movimento */
+  --rf-dur-1: 120ms;            /* hover, pressione, colore */
+  --rf-dur-2: 180ms;            /* popover, segmented, toast */
+  --rf-dur-3: 240ms;            /* sheet, dialog */
+  --rf-dur-ink: 420ms;          /* matita → inchiostro (conferma bozza) */
+  --rf-dur-think: 1400ms;       /* ciclo "Matita sta scrivendo" */
+  --rf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --rf-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --rf-ease-ink: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Livelli */
+  --rf-z-sticky: 10;
+  --rf-z-matita: 20;
+  --rf-z-overlay: 40;
+  --rf-z-toast: 50;
+}
+
+/* Scala desktop */
+@media (min-width: 64rem) {
+  :root {
+    --rf-text-display-xl: 4rem;      --rf-leading-display-xl: 4.25rem;
+    --rf-text-display-l: 2.75rem;    --rf-leading-display-l: 3rem;
+    --rf-text-display-m: 2rem;       --rf-leading-display-m: 2.375rem;
+    --rf-text-display-s: 1.5rem;     --rf-leading-display-s: 1.875rem;
+    --rf-gutter: 2.5rem;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   2. Tema scuro «Notte» — stessi nomi, valori diversi
+   (blocco duplicato di proposito: sistema + forzato)
+   --------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --rf-paper: #16171b;
+    --rf-paper-raised: #1e1f24;
+    --rf-paper-sunk: #101114;
+    --rf-rule: #303138;
+    --rf-rule-strong: #4a4b52;
+    --rf-control: #74757d;        /* 3,91:1 */
+    --rf-margin: #7a4540;
+    --rf-ink: #ece7dc;            /* 14,52:1 */
+    --rf-ink-2: #c2bdb1;          /* 9,56:1 */
+    --rf-ink-3: #9d998f;          /* 6,30:1 */
+    --rf-on-ink: #16171b;
+    --rf-debito: #f28b7f;         /* 7,48:1 */
+    --rf-debito-wash: #3b2320;
+    --rf-credito: #93b3f3;        /* 8,51:1 */
+    --rf-credito-wash: #1c2840;
+    --rf-pencil: #a4a9b1;         /* 7,58:1 */
+    --rf-pencil-line: #7c828b;    /* 4,63:1 */
+    --rf-pencil-hatch: rgb(164 169 177 / 0.08);
+    --rf-highlight: #5b5018;      /* testo sopra = --rf-ink (6,54:1) */
+    --rf-scrim: rgb(0 0 0 / 0.55);
+    --rf-shadow-popover: 0 10px 28px -14px rgb(0 0 0 / 0.65);
+    --rf-shadow-sheet: 0 28px 64px -28px rgb(0 0 0 / 0.75);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --rf-paper: #16171b;
+  --rf-paper-raised: #1e1f24;
+  --rf-paper-sunk: #101114;
+  --rf-rule: #303138;
+  --rf-rule-strong: #4a4b52;
+  --rf-control: #74757d;
+  --rf-margin: #7a4540;
+  --rf-ink: #ece7dc;
+  --rf-ink-2: #c2bdb1;
+  --rf-ink-3: #9d998f;
+  --rf-on-ink: #16171b;
+  --rf-debito: #f28b7f;
+  --rf-debito-wash: #3b2320;
+  --rf-credito: #93b3f3;
+  --rf-credito-wash: #1c2840;
+  --rf-pencil: #a4a9b1;
+  --rf-pencil-line: #7c828b;
+  --rf-pencil-hatch: rgb(164 169 177 / 0.08);
+  --rf-highlight: #5b5018;
+  --rf-scrim: rgb(0 0 0 / 0.55);
+  --rf-shadow-popover: 0 10px 28px -14px rgb(0 0 0 / 0.65);
+  --rf-shadow-sheet: 0 28px 64px -28px rgb(0 0 0 / 0.75);
+}
+
+/* ---------------------------------------------------------------------
+   3. Movimento ridotto: niente trasformazioni, niente loop
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rf-dur-1: 0ms;
+    --rf-dur-2: 0ms;
+    --rf-dur-3: 0ms;
+    --rf-dur-ink: 0ms;
+    --rf-dur-think: 0ms;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   4. Base minima (opzionale ma consigliata)
+   --------------------------------------------------------------------- */
+html {
+  background: var(--rf-paper);
+  color: var(--rf-ink);
+  font-family: var(--rf-font-ui);
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+body {
+  background: var(--rf-paper);
+  font-size: var(--rf-text-body);
+  line-height: var(--rf-leading-body);
+}
+:focus-visible {
+  outline: 2px solid var(--rf-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--rf-focus-halo);
+}
+::selection {
+  background: var(--rf-highlight);
+  color: var(--rf-ink);
+}
+
+
+
+/* ===================== specimen ===================== */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--rf-font-ui);color:var(--rf-ink);background:var(--rf-paper);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.ic{width:20px;height:20px;fill:currentColor;flex:none}
+.ic-16{width:16px;height:16px}
+.ic-18{width:18px;height:18px}
+.wrap{max-width:1312px;margin:0 auto;padding:0 var(--rf-gutter)}
+.disp{font-family:var(--rf-font-display);font-optical-sizing:auto;font-weight:400;letter-spacing:var(--rf-tracking-display)}
+.mono{font-family:var(--rf-font-money);font-variant-numeric:tabular-nums lining-nums}
+.cap{font-size:var(--rf-text-caption);line-height:var(--rf-leading-caption);font-weight:600;letter-spacing:var(--rf-tracking-caption);text-transform:uppercase;color:var(--rf-ink-3)}
+.meta{font-size:var(--rf-text-body-s);line-height:var(--rf-leading-body-s);color:var(--rf-ink-3)}
+.voice{font-family:var(--rf-font-display);font-style:italic;font-size:var(--rf-text-voice);line-height:var(--rf-leading-voice);color:var(--rf-ink-2)}
+.marker{background-image:linear-gradient(transparent 52%,var(--rf-highlight) 52%,var(--rf-highlight) 92%,transparent 92%);-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .08em}
+.num{font-variant-numeric:lining-nums proportional-nums;font-style:normal;white-space:nowrap}
+.deb{color:var(--rf-debito)} .cre{color:var(--rf-credito)}
+a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
+
+/* masthead */
+.top{display:flex;align-items:center;gap:24px;height:64px;border-bottom:1px solid var(--rf-rule)}
+.wordmark{font-family:var(--rf-font-display);font-size:22px;font-weight:500;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.wordmark i{font-style:italic;font-weight:400}
+.logo{width:28px;height:28px;border-radius:3px;background:var(--rf-ink);color:var(--rf-on-ink);display:grid;place-items:center;position:relative;font:italic 500 17px/1 var(--rf-font-display)}
+.logo::after{content:"";position:absolute;left:7px;top:0;bottom:0;width:1px;background:var(--rf-margin)}
+.top .spacer{flex:1}
+.seg{display:inline-flex;border:1px solid var(--rf-control);border-radius:var(--rf-radius-1);padding:2px;gap:2px;background:var(--rf-paper-raised)}
+.seg button{all:unset;cursor:pointer;height:32px;padding:0 12px;border-radius:2px;font-size:14px;font-weight:500;color:var(--rf-ink-2);display:inline-flex;align-items:center;gap:6px;transition:background var(--rf-dur-1),color var(--rf-dur-1)}
+.seg button[aria-pressed="true"]{background:var(--rf-ink);color:var(--rf-on-ink)}
+.seg button:focus-visible{outline:2px solid var(--rf-focus-ring);outline-offset:2px;box-shadow:0 0 0 5px var(--rf-focus-halo)}
+.seg.lg button{height:38px;padding:0 16px;font-size:15px}
+
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:48px;padding:56px 0 40px;align-items:end}
+.hero h1{margin:0;font-size:var(--rf-text-display-xl);line-height:var(--rf-leading-display-xl)}
+.hero h1 em{font-style:italic;color:var(--rf-pencil)}
+.hero p{margin:0;font-size:18px;line-height:28px;color:var(--rf-ink-2);max-width:34em}
+.hero .legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:20px}
+.legend span{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--rf-ink-2)}
+.legend b{width:12px;height:12px;border-radius:2px;display:inline-block}
+.corner{display:flex;justify-content:space-between;gap:16px;white-space:nowrap;border-top:2px solid var(--rf-ink);padding-top:8px;margin-top:8px}
+
+/* section header */
+.sec{padding:56px 0 8px}
+.sec-h{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:16px;align-items:baseline;border-top:2px solid var(--rf-ink);padding-top:12px;margin-bottom:28px}
+.sec-h .n{font-family:var(--rf-font-money);font-size:13px;color:var(--rf-ink-3)}
+.sec-h h2{margin:0;font-size:var(--rf-text-display-s);line-height:var(--rf-leading-display-s)}
+.sec-h p{margin:0;color:var(--rf-ink-3);font-size:14px;max-width:44ch;text-align:right}
+
+/* buttons */
+.btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--rf-control-h);padding:0 16px;border-radius:var(--rf-radius-1);font:600 15px/1 var(--rf-font-ui);white-space:nowrap;transition:background var(--rf-dur-1) var(--rf-ease-out),color var(--rf-dur-1),border-color var(--rf-dur-1)}
+.btn:focus-visible{outline:2px solid var(--rf-focus-ring);outline-offset:2px;box-shadow:0 0 0 5px var(--rf-focus-halo)}
+.btn-ink{background:var(--rf-ink);color:var(--rf-on-ink)}
+.btn-ink:hover{background:color-mix(in oklab,var(--rf-ink) 86%,var(--rf-paper))}
+.btn-line{border:1px solid var(--rf-control);color:var(--rf-ink);background:transparent}
+.btn-line:hover{background:var(--rf-paper-sunk)}
+.btn-quiet{color:var(--rf-ink-2);padding:0 10px}
+.btn-quiet:hover{color:var(--rf-ink);text-decoration:underline;text-underline-offset:4px}
+.btn-danger{border:1px solid var(--rf-debito);color:var(--rf-debito)}
+.btn-sm{height:var(--rf-control-h-sm);padding:0 12px;font-size:14px}
+.btn-sq{width:var(--rf-control-h);padding:0}
+
+/* badges */
+.badge{display:inline-flex;align-items:baseline;gap:6px;height:24px;padding:3px 8px 0;border-radius:var(--rf-radius-1);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.badge .mono{font-size:13px;font-weight:500;letter-spacing:0}
+.b-deb{background:var(--rf-debito-wash);color:var(--rf-debito)}
+.b-cre{background:var(--rf-credito-wash);color:var(--rf-credito)}
+.b-pari{box-shadow:inset 0 0 0 1px var(--rf-rule-strong);color:var(--rf-ink-2)}
+.b-bozza{color:var(--rf-pencil);background-image:linear-gradient(90deg,var(--rf-pencil-line) 50%,transparent 0),linear-gradient(90deg,var(--rf-pencil-line) 50%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 50%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 50%,transparent 0);background-size:8px 1px,8px 1px,1px 8px,1px 8px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y}
+
+/* ===== ledger page ===== */
+.page{display:grid;grid-template-columns:var(--rf-aside-w) minmax(0,1fr);gap:48px;align-items:start}
+.aside .name{margin:6px 0 4px;font-size:var(--rf-text-display-m);line-height:var(--rf-leading-display-m)}
+.aside .sub{color:var(--rf-ink-2);font-size:15px;line-height:22px}
+.bal{margin-top:28px;padding-bottom:16px;border-bottom:var(--rf-rule-total) double var(--rf-ink)}
+.bal .amt{font-family:var(--rf-font-display);font-weight:500;font-size:var(--rf-text-display-l);line-height:var(--rf-leading-display-l);font-variant-numeric:tabular-nums lining-nums;letter-spacing:-.015em;margin:6px 0 6px}
+.bal .amt small{font-size:.55em;font-weight:400;margin-left:.15em}
+.bal .amt-w{font-family:var(--rf-font-ui);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:14px;vertical-align:.55em}
+.bal p{margin:0;color:var(--rf-ink-2);font-size:15px;line-height:22px}
+.aside .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.mini{margin-top:28px}
+.mini .row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--rf-rule);font-size:15px}
+.mini .row .mono{font-size:15px}
+.mini .row.old{color:var(--rf-ink-3)}
+
+.ledger{position:relative;background:var(--rf-paper-raised);border-top:1px solid var(--rf-rule-strong)}
+.ledger::before{content:"";position:absolute;top:0;bottom:0;left:104px;width:1px;background:var(--rf-margin);opacity:.7;pointer-events:none}
+.lg-row{display:grid;grid-template-columns:104px minmax(0,1fr) 76px 100px 100px 136px;align-items:baseline;column-gap:0;border-bottom:1px solid var(--rf-rule);min-height:var(--rf-row-h-dense);position:relative}
+.lg-row>*{padding:13px 12px}
+.lg-row>:first-child{padding-left:14px}
+.lg-row .r{text-align:right}
+.lg-head{min-height:36px;background:var(--rf-paper)}
+.lg-head>*{padding-top:10px;padding-bottom:8px}
+.d1{font-size:14px;color:var(--rf-ink-2);white-space:nowrap}
+.d1 b{font-weight:600;color:var(--rf-ink)}
+.t1{display:block;font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-3);margin-top:2px}
+.what{font-size:15px;line-height:22px}
+.what b{font-weight:600}
+.what .arg{font-family:var(--rf-font-display);font-style:italic;color:var(--rf-ink-2)}
+.m-only{display:none}
+.what .note.mo{display:none}
+.what .note{display:block;font-size:13px;line-height:18px;color:var(--rf-ink-3);margin-top:2px}
+.lg-row .mono{font-size:15px}
+.dur{font-size:14px;color:var(--rf-ink-2);font-variant-numeric:tabular-nums}
+.saldo{white-space:nowrap}
+.saldo .w{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-right:8px}
+.icn{display:inline-flex;vertical-align:-3px;margin-right:6px;color:var(--rf-ink-3)}
+
+/* matita line — the next blank line of the register */
+.mline{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 8px 0 14px;border-bottom:1px solid var(--rf-ink-3);background:var(--rf-paper-raised);position:relative}
+.mline>.ic{color:var(--rf-pencil)}
+.mline input{all:unset;flex:1;min-width:0;height:44px;font-family:var(--rf-font-display);font-style:italic;font-size:17px;color:var(--rf-ink)}
+.mline input::placeholder{color:var(--rf-pencil);opacity:1}
+.mline:focus-within{box-shadow:0 0 0 2px var(--rf-ink) inset, 0 0 0 5px var(--rf-highlight)}
+.kbd{font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-3);white-space:nowrap;padding:0 4px}
+
+/* pencil draft row */
+.draft{color:var(--rf-pencil)}
+.draft::before{content:"";position:absolute;inset:3px 3px 3px 3px;background-image:repeating-linear-gradient(-45deg,transparent 0 7px,var(--rf-pencil-hatch) 7px 8px);pointer-events:none;transition:opacity var(--rf-dur-ink) var(--rf-ease-ink)}
+.draft::after{content:"";position:absolute;inset:2px;pointer-events:none;background-image:linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0);background-size:11px 1.5px,11px 1.5px,1.5px 11px,1.5px 11px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y;transition:opacity var(--rf-dur-ink) var(--rf-ease-ink)}
+.draft .what b,.draft .d1 b{color:var(--rf-pencil)}
+.draft .what .arg,.draft .d1,.draft .dur{color:var(--rf-pencil)}
+.draft .src{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;grid-column:2 / -1;padding-top:0;padding-bottom:14px}
+.draft .src .from{font-size:13px;color:var(--rf-pencil);flex:1 1 260px}
+.draft .src .from q{font-family:var(--rf-font-display);font-style:italic}
+.draft .ink-line{position:absolute;left:2px;right:2px;bottom:-1px;height:2px;background:var(--rf-ink);transform:scaleX(0);transform-origin:left;transition:transform var(--rf-dur-ink) var(--rf-ease-ink)}
+.draft.inking::before,.draft.inking::after{opacity:0}
+.draft.inking{color:var(--rf-ink);transition:color var(--rf-dur-ink)}
+.draft.inking .ink-line{transform:scaleX(1)}
+.draft.inking .what b,.draft.inking .d1 b{color:var(--rf-ink)}
+.cancel .what,.cancel .d1{color:var(--rf-ink-3)}
+.cancel .what b{text-decoration:line-through;text-decoration-thickness:1px;font-weight:500}
+.rate{min-height:40px;background:var(--rf-paper)}
+.rate>*{padding-top:9px;padding-bottom:9px}
+.rate .what{font-size:14px;color:var(--rf-ink-2);grid-column:2 / -1}
+.riporto .what{font-family:var(--rf-font-display);font-style:italic;color:var(--rf-ink-2)}
+
+/* ===== matita states ===== */
+.states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.st{min-width:0}
+.st>.cap{display:flex;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--rf-rule)}
+.st>.cap span:last-child{font-family:var(--rf-font-money);text-transform:none;letter-spacing:0;font-weight:400}
+.scribble{position:absolute;left:44px;width:calc(100% - 64px);bottom:6px;height:10px;overflow:visible}
+.scribble path{fill:none;stroke:var(--rf-pencil);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:420;stroke-dashoffset:420;animation:draw var(--rf-dur-think) var(--rf-ease-ink) infinite;animation-delay:-.55s}
+@keyframes draw{0%{stroke-dashoffset:420}60%{stroke-dashoffset:0}100%{stroke-dashoffset:-420}}
+@media (prefers-reduced-motion:reduce){.scribble path{animation:none;stroke-dasharray:3 5;stroke-dashoffset:0}}
+.card{position:relative;background:var(--rf-paper-raised);border-radius:var(--rf-radius-2);padding:16px 16px 14px}
+.card.pencil::after{content:"";position:absolute;inset:0;border-radius:var(--rf-radius-2);pointer-events:none;background-image:linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0);background-size:11px 1.5px,11px 1.5px,1.5px 11px,1.5px 11px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y}
+.card.pencil{background-image:repeating-linear-gradient(-45deg,transparent 0 7px,var(--rf-pencil-hatch) 7px 8px)}
+.card.note{border-left:2px solid var(--rf-ink);border-radius:0 var(--rf-radius-2) var(--rf-radius-2) 0}
+.who{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--rf-pencil);margin-bottom:8px}
+.who .ic{width:16px;height:16px}
+.said{font-family:var(--rf-font-display);font-style:italic;font-size:16px;line-height:26px;color:var(--rf-ink)}
+.fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:12px 0 14px;font-size:14px;line-height:20px}
+.fields dt{color:var(--rf-pencil)}
+.fields dd{margin:0;color:var(--rf-ink)}
+.fields .mono{font-size:14px}
+.row-actions{display:flex;flex-wrap:wrap;gap:8px}
+.msg{font-size:15px;line-height:23px;color:var(--rf-ink);background:var(--rf-paper);padding:12px 14px;border-radius:3px;margin:8px 0 12px}
+.small-note{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--rf-rule);font-size:14px;line-height:21px;color:var(--rf-ink-2)}
+.small-note .ic{margin-top:1px;color:var(--rf-ink-3)}
+.small-note b{color:var(--rf-ink);font-weight:600}
+
+/* ===== type & color ===== */
+.two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:48px}
+.ts{display:grid;grid-template-columns:132px minmax(0,1fr);gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--rf-rule)}
+.ts .tok{font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-3);line-height:16px}
+.ts .tok b{display:block;font-weight:500;color:var(--rf-ink-2)}
+.ts .s{min-width:0;overflow-wrap:anywhere}
+.sw{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rf-rule)}
+.chip{width:44px;height:32px;border-radius:2px;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .08)}
+.sw .n{font-size:15px;font-weight:500}
+.sw .n span{display:block;font-family:var(--rf-font-money);font-size:12px;font-weight:400;color:var(--rf-ink-3)}
+.sw .v{font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-2);text-align:right;line-height:17px}
+.sw .v b{font-weight:500;color:var(--rf-ink)}
+
+/* ===== components ===== */
+.comp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.comp h3{margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-ink-3);padding-bottom:8px;border-bottom:1px solid var(--rf-rule)}
+.stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field{display:block;margin-bottom:14px}
+.field label{display:block;font-size:14px;font-weight:500;color:var(--rf-ink-2);margin-bottom:6px}
+.inp{display:flex;align-items:center;gap:8px;height:var(--rf-control-h);padding:0 12px;border:1px solid var(--rf-control);border-radius:var(--rf-radius-1);background:var(--rf-paper-raised);font-size:16px;color:var(--rf-ink)}
+.inp .ic{color:var(--rf-ink-3)}
+.inp .grow{flex:1}
+.inp.focus{outline:2px solid var(--rf-focus-ring);outline-offset:2px;box-shadow:0 0 0 5px var(--rf-focus-halo)}
+.inp.err{border-color:var(--rf-debito);box-shadow:inset 0 0 0 1px var(--rf-debito)}
+.hint{font-size:13px;line-height:18px;color:var(--rf-ink-3);margin-top:6px}
+.hint.e{color:var(--rf-debito);display:flex;gap:6px;align-items:center}
+.timepair{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.toast{display:flex;align-items:center;gap:12px;background:var(--rf-ink);color:var(--rf-on-ink);border-radius:var(--rf-radius-2);padding:0 8px 0 14px;min-height:48px;font-size:15px;box-shadow:var(--rf-shadow-popover)}
+.toast .grow{flex:1}
+.toast button{all:unset;cursor:pointer;font-weight:600;padding:8px 10px;text-decoration:underline;text-underline-offset:4px}
+
+/* ===== mobile mock ===== */
+.mob-wrap{display:grid;grid-template-columns:390px minmax(0,1fr);gap:48px;align-items:start}
+.phone{width:390px;max-width:100%;border:1px solid var(--rf-rule-strong);background:var(--rf-paper);position:relative;border-radius:6px;overflow:hidden}
+.ph-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0}
+.ph-top .wordmark{font-size:18px}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--rf-paper-sunk);display:grid;place-items:center;font-weight:600;font-size:14px;color:var(--rf-ink-2);box-shadow:inset 0 0 0 1px var(--rf-rule-strong)}
+.ph-h{padding:18px 16px 4px}
+.ph-h h3{margin:2px 0 0;font-size:var(--rf-text-display-l);line-height:var(--rf-leading-display-l)}
+.ph-sec{padding:0 16px;margin-top:22px}
+.ph-sec .hd{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--rf-ink);padding-top:8px;margin-bottom:2px}
+.ph-sec .hd h4{margin:0;font-size:17px;font-weight:600}
+.ph-sec .hd a{font-size:14px;color:var(--rf-ink-2)}
+.ag{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:60px;padding:8px 0;border-bottom:1px solid var(--rf-rule)}
+.ag .tm{font-family:var(--rf-font-money);font-size:16px;font-weight:500;line-height:20px}
+.ag .tm span{display:block;font-size:12px;font-weight:400;color:var(--rf-ink-3)}
+.ag .nm{font-size:16px;font-weight:600;line-height:22px}
+.ag .sj{font-size:14px;color:var(--rf-ink-2);line-height:20px}
+.ag .go{color:var(--rf-ink-3)}
+.dayline{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-ink-3);padding:14px 0 4px}
+.acc{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;border-bottom:1px solid var(--rf-rule)}
+.acc .nm{font-size:16px;font-weight:500}
+.acc .r{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.acc .w{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.acc .mono{font-size:16px;font-weight:500}
+.acc .h{font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-3)}
+.tot{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 6px;font-size:15px;color:var(--rf-ink-2)}
+.tot .mono{font-family:var(--rf-font-display);font-variant-numeric:tabular-nums lining-nums;font-size:20px;font-weight:500;color:var(--rf-ink)}
+.tot.dbl{border-bottom:3px double var(--rf-ink)}
+.ph-bottom{position:sticky;bottom:0;background:var(--rf-paper-raised);border-top:1px solid var(--rf-rule-strong);margin-top:24px}
+.ph-bottom .mline{border-bottom:1px solid var(--rf-rule);min-height:56px;padding:0 6px 0 14px}
+.ph-bottom .mline input{font-size:16px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);height:64px}
+.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:500;color:var(--rf-ink-3);text-decoration:none;position:relative}
+.tabs a[aria-current]{color:var(--rf-ink)}
+.tabs a[aria-current]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;background:var(--rf-ink)}
+.tabs .ic{width:22px;height:22px}
+
+.notes{font-size:15px;line-height:24px;color:var(--rf-ink-2)}
+.notes ol{margin:0;padding-left:22px}
+.notes li{margin-bottom:10px}
+.notes b{color:var(--rf-ink);font-weight:600}
+footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--rf-ink-3);font-size:13px}
+
+/* ===== responsive ===== */
+@media (max-width: 1100px){
+  .page{grid-template-columns:minmax(0,1fr);gap:32px}
+  .states,.comp{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mob-wrap{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width: 760px){
+  .top{gap:10px}
+  .top .meta-c{display:none}
+  .top .seg button{padding:0 9px;font-size:13px}
+  .top .seg button .ic{display:none}
+  .wordmark{font-size:19px}
+  .corner{font-size:11px}
+  .ts{grid-template-columns:minmax(0,1fr);gap:4px}
+  .lg-row .t1{display:none}
+  .m-only{display:inline !important}
+  .what .note.mo{display:block}
+  .hero{grid-template-columns:minmax(0,1fr);gap:20px;padding:32px 0 24px}
+  .hero p{font-size:16px;line-height:25px}
+  .sec{padding-top:40px}
+  .sec-h{grid-template-columns:40px minmax(0,1fr)}
+  .sec-h p{grid-column:1 / -1;text-align:left}
+  .two,.states,.comp{grid-template-columns:minmax(0,1fr);gap:28px}
+  .ledger::before{left:72px}
+  .lg-head{display:none}
+  .lg-row{grid-template-columns:72px minmax(0,1fr) auto;min-height:var(--rf-row-h)}
+  .lg-row>*{padding:12px 10px}
+  .lg-row>:first-child{padding-left:10px}
+  .lg-row .c-dur,.lg-row .c-pay.empty,.lg-row .c-chg.empty{display:none}
+  .lg-row .c-saldo{grid-column:2 / -1;padding-top:0;text-align:left}
+  .lg-row .c-saldo .w{margin-right:6px}
+  .lg-row .c-chg,.lg-row .c-pay{grid-column:3;grid-row:1}
+  .draft .src{grid-column:1 / -1;padding-left:10px}
+  .rate .what{grid-column:2 / -1}
+  .phone{width:100%;border:0;border-radius:0;margin:0 calc(-1 * var(--rf-gutter));width:calc(100% + 2 * var(--rf-gutter));max-width:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-pencil-simple-line" viewBox="0 0 256 256"><path d="M227.32,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H216a8,8,0,0,0,0-16H115.32l112-112A16,16,0,0,0,227.32,73.37ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.69,147.32,64l24-24L216,84.69Z"/></symbol><symbol id="i-pen-nib" viewBox="0 0 256 256"><path d="M248,92.68a15.86,15.86,0,0,0-4.69-11.31L174.63,12.68a16,16,0,0,0-22.63,0L123.57,41.11l-58,21.77A16.06,16.06,0,0,0,55.35,75.23L32.11,214.68A8,8,0,0,0,40,224a8.4,8.4,0,0,0,1.32-.11l139.44-23.24a16,16,0,0,0,12.35-10.17l21.77-58L243.31,104A15.87,15.87,0,0,0,248,92.68Zm-69.87,92.19L63.32,204l47.37-47.37a28,28,0,1,0-11.32-11.32L52,192.7,71.13,77.86,126,57.29,198.7,130ZM112,132a12,12,0,1,1,12,12A12,12,0,0,1,112,132Zm96-15.32L139.31,48l24-24L232,92.68Z"/></symbol><symbol id="i-calendar-dots" viewBox="0 0 256 256"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z"/></symbol><symbol id="i-student" viewBox="0 0 256 256"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29a64,64,0,0,0,20.65,88.05c-18,7.06-33.56,19.83-44.94,37.29a8,8,0,1,0,13.4,8.74C77.77,197.25,101.57,184,128,184s50.23,13.25,65.3,36.37a8,8,0,0,0,13.4-8.74c-11.38-17.46-27-30.23-44.94-37.29a64,64,0,0,0,20.65-88l44.12-14.7a8,8,0,0,0,0-15.18ZM176,120A48,48,0,1,1,89.35,91.55l36.12,12a8,8,0,0,0,5.06,0l36.12-12A47.89,47.89,0,0,1,176,120ZM128,87.57,57.3,64,128,40.43,198.7,64Z"/></symbol><symbol id="i-coins" viewBox="0 0 256 256"><path d="M184,89.57V84c0-25.08-37.83-44-88-44S8,58.92,8,84v40c0,20.89,26.25,37.49,64,42.46V172c0,25.08,37.83,44,88,44s88-18.92,88-44V132C248,111.3,222.58,94.68,184,89.57ZM232,132c0,13.22-30.79,28-72,28-3.73,0-7.43-.13-11.08-.37C170.49,151.77,184,139,184,124V105.74C213.87,110.19,232,122.27,232,132ZM72,150.25V126.46A183.74,183.74,0,0,0,96,128a183.74,183.74,0,0,0,24-1.54v23.79A163,163,0,0,1,96,152,163,163,0,0,1,72,150.25Zm96-40.32V124c0,8.39-12.41,17.4-32,22.87V123.5C148.91,120.37,159.84,115.71,168,109.93ZM96,56c41.21,0,72,14.78,72,28s-30.79,28-72,28S24,97.22,24,84,54.79,56,96,56ZM24,124V109.93c8.16,5.78,19.09,10.44,32,13.57v23.37C36.41,141.4,24,132.39,24,124Zm64,48v-4.17c2.63.1,5.29.17,8,.17,3.88,0,7.67-.13,11.39-.35A121.92,121.92,0,0,0,120,171.41v23.46C100.41,189.4,88,180.39,88,172Zm48,26.25V174.4a179.48,179.48,0,0,0,24,1.6,183.74,183.74,0,0,0,24-1.54v23.79a165.45,165.45,0,0,1-48,0Zm64-3.38V171.5c12.91-3.13,23.84-7.79,32-13.57V172C232,180.39,219.59,189.4,200,194.87Z"/></symbol><symbol id="i-gear-six" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></symbol><symbol id="i-magnifying-glass" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></symbol><symbol id="i-plus" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol><symbol id="i-house" viewBox="0 0 256 256"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></symbol><symbol id="i-check" viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-x" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></symbol><symbol id="i-money" viewBox="0 0 256 256"><path d="M128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152ZM240,56H16a8,8,0,0,0-8,8V192a8,8,0,0,0,8,8H240a8,8,0,0,0,8-8V64A8,8,0,0,0,240,56ZM193.65,184H62.35A56.78,56.78,0,0,0,24,145.65v-35.3A56.78,56.78,0,0,0,62.35,72h131.3A56.78,56.78,0,0,0,232,110.35v35.3A56.78,56.78,0,0,0,193.65,184ZM232,93.37A40.81,40.81,0,0,1,210.63,72H232ZM45.37,72A40.81,40.81,0,0,1,24,93.37V72ZM24,162.63A40.81,40.81,0,0,1,45.37,184H24ZM210.63,184A40.81,40.81,0,0,1,232,162.63V184Z"/></symbol><symbol id="i-bank" viewBox="0 0 256 256"><path d="M24,104H48v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16H208V104h24a8,8,0,0,0,4.19-14.81l-104-64a8,8,0,0,0-8.38,0l-104,64A8,8,0,0,0,24,104Zm40,0H96v64H64Zm80,0v64H112V104Zm48,64H160V104h32ZM128,41.39,203.74,88H52.26ZM248,208a8,8,0,0,1-8,8H16a8,8,0,0,1,0-16H240A8,8,0,0,1,248,208Z"/></symbol><symbol id="i-whatsapp-logo" viewBox="0 0 256 256"><path d="M187.58,144.84l-32-16a8,8,0,0,0-8,.5l-14.69,9.8a40.55,40.55,0,0,1-16-16l9.8-14.69a8,8,0,0,0,.5-8l-16-32A8,8,0,0,0,104,64a40,40,0,0,0-40,40,88.1,88.1,0,0,0,88,88,40,40,0,0,0,40-40A8,8,0,0,0,187.58,144.84ZM152,176a72.08,72.08,0,0,1-72-72A24,24,0,0,1,99.29,80.46l11.48,23L101,118a8,8,0,0,0-.73,7.51,56.47,56.47,0,0,0,30.15,30.15A8,8,0,0,0,138,155l14.61-9.74,23,11.48A24,24,0,0,1,152,176ZM128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></symbol><symbol id="i-copy" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol><symbol id="i-arrows-clockwise" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="i-cloud-check" viewBox="0 0 256 256"><path d="M160,40A88.09,88.09,0,0,0,81.29,88.67,64,64,0,1,0,72,216h88a88,88,0,0,0,0-176Zm0,160H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.29.11A88,88,0,0,0,72,128a8,8,0,0,0,16,0,72,72,0,1,1,72,72Zm37.66-93.66a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L144,148.69l42.34-42.35A8,8,0,0,1,197.66,106.34Z"/></symbol><symbol id="i-cloud-slash" viewBox="0 0 256 256"><path d="M53.92,34.62A8,8,0,1,0,42.08,45.38L81.32,88.55l-.06.12A65,65,0,0,0,72,88a64,64,0,0,0,0,128h88a87.34,87.34,0,0,0,31.8-5.93l10.28,11.31a8,8,0,1,0,11.84-10.76ZM160,200H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.3.12A88.4,88.4,0,0,0,72,128a8,8,0,0,0,16,0,72.25,72.25,0,0,1,5.06-26.54l87,95.7A71.66,71.66,0,0,1,160,200Zm88-72a87.89,87.89,0,0,1-22.35,58.61A8,8,0,0,1,213.71,176,72,72,0,0,0,117.37,70a8,8,0,0,1-9.48-12.89A88,88,0,0,1,248,128Z"/></symbol><symbol id="i-clock" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></symbol><symbol id="i-notebook" viewBox="0 0 256 256"><path d="M184,112a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h64A8,8,0,0,1,184,112Zm-8,24H112a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm48-88V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM48,208H72V48H48Zm160,0V48H88V208H208Z"/></symbol><symbol id="i-arrow-u-up-left" viewBox="0 0 256 256"><path d="M232,144a64.07,64.07,0,0,1-64,64H80a8,8,0,0,1,0-16h88a48,48,0,0,0,0-96H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,45.66L51.31,80H168A64.07,64.07,0,0,1,232,144Z"/></symbol><symbol id="i-warning" viewBox="0 0 256 256"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></symbol><symbol id="i-caret-right" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></symbol><symbol id="i-sun" viewBox="0 0 256 256"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></symbol><symbol id="i-moon" viewBox="0 0 256 256"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z"/></symbol><symbol id="i-hourglass-medium" viewBox="0 0 256 256"><path d="M200,75.64V40a16,16,0,0,0-16-16H72A16,16,0,0,0,56,40V76a16.07,16.07,0,0,0,6.4,12.8L114.67,128,62.4,167.2A16.07,16.07,0,0,0,56,180v36a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V180.36a16.09,16.09,0,0,0-6.35-12.77L141.27,128l52.38-39.6A16.05,16.05,0,0,0,200,75.64ZM72,40H184V75.64L178.23,80H77.33L72,76Zm56,78L98.67,96h58.4Zm56,98H72V180l48-36v24a8,8,0,0,0,16,0V144.08l48,36.28Z"/></symbol><symbol id="i-prohibit" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.4A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.6A88,88,0,0,1,40,128Z"/></symbol><symbol id="i-eraser" viewBox="0 0 256 256"><path d="M225,80.4,183.6,39a24,24,0,0,0-33.94,0L31,157.66a24,24,0,0,0,0,33.94l30.06,30.06A8,8,0,0,0,66.74,224H216a8,8,0,0,0,0-16h-84.7L225,114.34A24,24,0,0,0,225,80.4ZM108.68,208H70.05L42.33,180.28a8,8,0,0,1,0-11.31L96,115.31,148.69,168Zm105-105L160,156.69,107.31,104,161,50.34a8,8,0,0,1,11.32,0l41.38,41.38a8,8,0,0,1,0,11.31Z"/></symbol><symbol id="i-note-pencil" viewBox="0 0 256 256"><path d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></symbol><symbol id="i-chat-text" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V224a15.85,15.85,0,0,0,9.24,14.5A16.13,16.13,0,0,0,40,240a15.89,15.89,0,0,0,10.25-3.78l.09-.07L83,208H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM40,224h0ZM216,192H80a8,8,0,0,0-5.23,1.95L40,224V64H216ZM88,112a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H96A8,8,0,0,1,88,112Zm0,32a8,8,0,0,1,8-8h64a8,8,0,1,1,0,16H96A8,8,0,0,1,88,144Z"/></symbol><symbol id="i-arrow-right" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol></svg>
+<div class="wrap">
+
+  <header class="top">
+    <div class="wordmark"><span class="logo" aria-hidden="true">R</span><span>Ripeti<i>Flow</i></span></div>
+    <span class="meta meta-c">Sistema visivo «Registro» · v1.0 · mar 6 ott 2026</span>
+    <span class="spacer"></span>
+    <div class="seg" role="group" aria-label="Tema">
+      <button type="button" data-t="system" aria-pressed="false">Sistema</button>
+      <button type="button" data-t="light" aria-pressed="false"><svg class="ic ic-16"><use href="#i-sun"/></svg>Chiaro</button>
+      <button type="button" data-t="dark" aria-pressed="false"><svg class="ic ic-16"><use href="#i-moon"/></svg>Scuro</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1 class="disp">Inchiostro<br>e <em>matita</em>.</h1>
+    </div>
+    <div>
+      <p>Il registro di chi dà ripetizioni. I fatti — lezioni fatte, soldi ricevuti — si scrivono <b>a penna</b>. Le proposte di Matita restano <span class="marker">a matita</span> finché non le ripassi tu. Il colore serve solo a dire qualcosa.</p>
+      <div class="legend" aria-label="Legenda colori">
+        <span><b style="background:var(--rf-debito)"></b>ti deve</span>
+        <span><b style="background:var(--rf-credito)"></b>in credito</span>
+        <span><b style="background:var(--rf-pencil)"></b>bozza di Matita</span>
+        <span><b style="background:var(--rf-highlight);box-shadow:inset 0 0 0 1px var(--rf-rule-strong)"></b>oggi · adesso</span>
+      </div>
+      <div class="corner cap"><span>Literata · Schibsted Grotesk · IBM Plex Mono</span><span>it-IT</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 1. LIBRO MASTRO ============ -->
+  <section class="sec" aria-labelledby="s1">
+    <div class="sec-h"><span class="n">§ 1</span><h2 id="s1" class="disp">Scheda studente — il libro mastro</h2><p>Righe più recenti in alto. La prima riga vuota è dove si scrive: a mano o con Matita.</p></div>
+
+    <div class="page">
+      <aside class="aside">
+        <div class="cap">Studentessa</div>
+        <h3 class="name disp">Giulia Ferri</h3>
+        <div class="sub">3ª liceo scientifico · Matematica, Fisica<br>Mamma: Anna Ferri · <span class="num">347 512 0896</span></div>
+
+        <div class="bal">
+          <div class="cap">Saldo al 6 ottobre</div>
+          <div class="amt deb">67,00<small>€</small><span class="amt-w">ti deve</span></div>
+          <p>Ultimo pagamento <span class="num">50,00 €</span> il 2 ott, con bonifico. Da allora 2 lezioni, <span class="num">3 h 30 min</span>.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ink" type="button"><svg class="ic ic-18"><use href="#i-coins"/></svg>Pagamento</button>
+          <button class="btn btn-line" type="button"><svg class="ic ic-18"><use href="#i-chat-text"/></svg>Promemoria</button>
+        </div>
+
+        <div class="mini">
+          <div class="cap" style="padding-bottom:6px;border-bottom:1px solid var(--rf-rule-strong)">Tariffa oraria</div>
+          <div class="row"><span>dal 1 ott 2026</span><span class="mono">22,00 €/h</span></div>
+          <div class="row old"><span>dal 15 set 2025</span><span class="mono">20,00 €/h</span></div>
+          <button class="btn btn-quiet" type="button" style="padding-left:0;margin-top:4px">Cambia tariffa…</button>
+        </div>
+      </aside>
+
+      <div>
+        <div class="ledger" role="table" aria-label="Registro di Giulia Ferri">
+          <div class="lg-row lg-head" role="row">
+            <span class="cap" role="columnheader">Data</span>
+            <span class="cap" role="columnheader">Voce</span>
+            <span class="cap r c-dur" role="columnheader">Durata</span>
+            <span class="cap r c-chg" role="columnheader">Lezione</span>
+            <span class="cap r c-pay" role="columnheader">Pagato</span>
+            <span class="cap r c-saldo" role="columnheader">Saldo</span>
+          </div>
+
+          <label class="mline" role="row">
+            <svg class="ic"><use href="#i-pencil-simple-line"/></svg>
+            <input type="text" aria-label="Scrivi a Matita" placeholder="Scrivi una riga… «oggi 15–16:30 matematica, equazioni»">
+            <span class="kbd">⌘K</span>
+            <button class="btn btn-line btn-sq btn-sm" type="button" aria-label="Nuova lezione con il modulo" style="width:36px"><svg class="ic ic-18"><use href="#i-plus"/></svg></button>
+          </label>
+
+          <div class="lg-row draft" role="row" id="draftRow">
+            <span class="d1" role="cell"><b>mar 6</b> ott<span class="t1">15:00–16:30</span></span>
+            <span class="what" role="cell"><b>Matematica</b> · <span class="arg">equazioni di secondo grado</span><span class="note"><span class="m-only">15:00–16:30 · </span>Bozza · non ancora nel saldo</span></span>
+            <span class="r dur c-dur" role="cell">1 h 30</span>
+            <span class="r mono c-chg" role="cell">33,00</span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo" role="cell"><span class="w">sarà</span><span class="mono">100,00 €</span></span>
+            <div class="src" role="cell">
+              <span class="from"><svg class="ic ic-16 icn" style="color:var(--rf-pencil)"><use href="#i-pencil-simple-line"/></svg>Matita ha letto: <q>oggi 15–16:30 mate con Giulia, equazioni di 2° grado</q></span>
+              <button class="btn btn-ink btn-sm" type="button" id="inkBtn"><svg class="ic ic-16"><use href="#i-pen-nib"/></svg>Ripassa a penna</button>
+              <button class="btn btn-quiet btn-sm" type="button">Modifica</button>
+              <button class="btn btn-quiet btn-sm" type="button">Scarta</button>
+            </div>
+            <span class="ink-line" aria-hidden="true"></span>
+          </div>
+
+          <div class="lg-row" role="row">
+            <span class="d1" role="cell"><b>lun 5</b> ott<span class="t1">17:00–19:00</span></span>
+            <span class="what" role="cell"><b>Fisica</b> · <span class="arg">moto rettilineo uniforme</span><span class="note"><span class="m-only">17:00–19:00 · </span>Esercizi 4–9 pag. 112 per giovedì</span></span>
+            <span class="r dur c-dur" role="cell">2 h</span>
+            <span class="r mono c-chg" role="cell">44,00</span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">67,00 €</span></span>
+          </div>
+
+          <div class="lg-row cancel" role="row">
+            <span class="d1" role="cell"><b>sab 3</b> ott<span class="t1">10:00–11:00</span></span>
+            <span class="what" role="cell"><b>Matematica</b><span class="note"><span class="m-only">10:00–11:00 · </span>Annullata · non addebitata</span></span>
+            <span class="r dur c-dur" role="cell">—</span>
+            <span class="r mono c-chg" role="cell" style="color:var(--rf-ink-3)">—</span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">23,00 €</span></span>
+          </div>
+
+          <div class="lg-row" role="row">
+            <span class="d1" role="cell"><b>ven 2</b> ott</span>
+            <span class="what" role="cell"><svg class="ic ic-16 icn"><use href="#i-bank"/></svg><b>Pagamento</b> · bonifico</span>
+            <span class="r dur c-dur" role="cell"></span>
+            <span class="r c-chg empty" role="cell"></span>
+            <span class="r mono c-pay cre" role="cell">50,00</span>
+            <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">23,00 €</span></span>
+          </div>
+
+          <div class="lg-row" role="row">
+            <span class="d1" role="cell"><b>gio 1</b> ott<span class="t1">16:00–17:30</span></span>
+            <span class="what" role="cell"><b>Fisica</b> · <span class="arg">vettori e componenti</span><span class="note mo">16:00–17:30</span></span>
+            <span class="r dur c-dur" role="cell">1 h 30</span>
+            <span class="r mono c-chg" role="cell">33,00</span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">73,00 €</span></span>
+          </div>
+
+          <div class="lg-row rate" role="row">
+            <span class="d1" role="cell"><b>gio 1</b> ott</span>
+            <span class="what" role="cell"><svg class="ic ic-16 icn"><use href="#i-arrows-clockwise"/></svg>Tariffa da <span class="num">20,00</span> a <span class="num">22,00 €/h</span> per le lezioni da questa data</span>
+          </div>
+
+          <div class="lg-row" role="row">
+            <span class="d1" role="cell"><b>lun 28</b> set<span class="t1">15:00–17:00</span></span>
+            <span class="what" role="cell"><b>Matematica</b> · <span class="arg">disequazioni fratte</span><span class="note mo">15:00–17:00</span></span>
+            <span class="r dur c-dur" role="cell">2 h</span>
+            <span class="r mono c-chg" role="cell">40,00</span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">40,00 €</span></span>
+          </div>
+
+          <div class="lg-row riporto" role="row" style="border-bottom:var(--rf-rule-total) double var(--rf-ink)">
+            <span class="d1" role="cell">27 set</span>
+            <span class="what" role="cell">Riporto dal registro di settembre</span>
+            <span class="r dur c-dur" role="cell"></span>
+            <span class="r c-chg empty" role="cell"></span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo" role="cell" style="color:var(--rf-ink-2)"><span class="w">in pari</span><span class="mono">0,00 €</span></span>
+          </div>
+        </div>
+        <p class="meta" style="margin:10px 0 0">Prova: «Ripassa a penna» trasforma la bozza in riga d'inchiostro (420 ms; istantaneo con movimento ridotto).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. MATITA ============ -->
+  <section class="sec" aria-labelledby="s2">
+    <div class="sec-h"><span class="n">§ 2</span><h2 id="s2" class="disp">Matita — scrive a matita, tu ripassi a penna</h2><p>Non è una chat che galleggia: è la prima riga del registro. ⌘K / Ctrl+K la mette a fuoco ovunque.</p></div>
+    <div class="states">
+      <div class="st">
+        <div class="cap"><span>Sta pensando</span><span>dopo Invio</span></div>
+        <div class="mline" style="border:1px solid var(--rf-rule);border-bottom-color:var(--rf-ink-3)">
+          <svg class="ic"><use href="#i-pencil-simple-line"/></svg>
+          <input type="text" value="ieri 15–16:30 matematica con Luca, equazioni di secondo grado" aria-label="Esempio" readonly>
+          <svg class="scribble" viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden="true"><path d="M0 6 C 20 1, 30 9, 50 5 S 80 2, 100 6 S 140 9, 160 4 S 200 2, 220 6 S 260 9, 280 5 S 320 2, 340 6 S 380 8, 400 5"/></svg>
+        </div>
+        <p class="meta" style="margin:8px 0 0"><span class="marker" style="color:var(--rf-ink)">Matita sta scrivendo…</span> · Esc per annullare</p>
+      </div>
+
+      <div class="st" style="grid-row:span 2">
+        <div class="cap"><span>Proposta · lezione</span><span>bozza</span></div>
+        <div class="card pencil">
+          <div class="who"><svg class="ic"><use href="#i-pencil-simple-line"/></svg>Matita propone</div>
+          <div class="said"><span class="marker">ieri</span> <span class="marker">15–16:30</span> <span class="marker">matematica</span> con <span class="marker">Luca</span>, <span class="marker">equazioni di secondo grado</span></div>
+          <dl class="fields">
+            <dt>Studente</dt><dd>Luca Bianchi</dd>
+            <dt>Data</dt><dd>lun 5 ott 2026 <span style="color:var(--rf-ink-3)">(ieri)</span></dd>
+            <dt>Orario</dt><dd><span class="num">15:00–16:30 · 1 h 30 min</span></dd>
+            <dt>Materia</dt><dd>Matematica</dd>
+            <dt>Argomento</dt><dd>equazioni di secondo grado</dd>
+            <dt>Importo</dt><dd><span class="num" style="font-weight:600">30,00 €</span> <span style="color:var(--rf-ink-3)">a 20,00 €/h</span></dd>
+          </dl>
+          <div class="row-actions">
+            <button class="btn btn-ink btn-sm" type="button"><svg class="ic ic-16"><use href="#i-pen-nib"/></svg>Ripassa a penna</button>
+            <button class="btn btn-line btn-sm" type="button">Modifica</button>
+            <button class="btn btn-quiet btn-sm" type="button">Scarta</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="st" style="grid-row:span 2">
+        <div class="cap"><span>Proposta · messaggio</span><span>bozza</span></div>
+        <div class="card pencil">
+          <div class="who"><svg class="ic"><use href="#i-pencil-simple-line"/></svg>Promemoria per la mamma di Marco</div>
+          <div class="msg">Buongiorno signora Rossi, le scrivo il riepilogo di settembre per Marco: 6 lezioni, 9 ore, <span class="num">180,00 €</span>. Ho ricevuto <span class="num">60,00 €</span> il 12 settembre, quindi restano <span class="num">120,00 €</span>. Grazie, Daniele</div>
+          <div class="row-actions">
+            <button class="btn btn-ink btn-sm" type="button"><svg class="ic ic-16"><use href="#i-copy"/></svg>Copia</button>
+            <button class="btn btn-line btn-sm" type="button"><svg class="ic ic-16"><use href="#i-whatsapp-logo"/></svg>WhatsApp</button>
+            <button class="btn btn-quiet btn-sm" type="button">Modifica</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="st">
+        <div class="cap"><span>Risposta</span><span>nota a margine</span></div>
+        <div class="card note">
+          <div class="who" style="color:var(--rf-ink-3)">Quanto mi deve Giulia?</div>
+          <div class="said">Giulia ti deve <span class="deb" style="font-weight:600">67,00 €</span>: due lezioni dopo il bonifico di 50,00 € del 2 ottobre.</div>
+          <div class="row-actions" style="margin-top:10px"><a href="#s1" class="btn btn-quiet btn-sm" style="padding-left:0">Apri il registro <svg class="ic ic-16"><use href="#i-arrow-right"/></svg></a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:32px">
+      <div>
+        <div class="small-note"><svg class="ic"><use href="#i-prohibit"/></svg><span><b>Fuori ambito.</b> Questo non lo so fare. Posso segnare lezioni e pagamenti, dirti i saldi e scrivere promemoria. Prova: «chi mi deve più di 50 €?»</span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-warning"/></svg><span><b>Non ho capito la riga.</b> Manca lo studente: c'è un Luca Bianchi e un Luca Moretti. <a href="#">Scegli</a> oppure <a href="#">usa il modulo</a>.</span></div>
+      </div>
+      <div>
+        <div class="small-note"><svg class="ic"><use href="#i-hourglass-medium"/></svg><span><b>Pausa fino alle 16:40.</b> Hai usato le 30 richieste di quest'ora. I moduli funzionano come sempre.</span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-cloud-slash"/></svg><span><b>Errore di rete.</b> La riga non è stata salvata e resta nel campo. <a href="#">Riprova</a>.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. MOBILE ============ -->
+  <section class="sec" aria-labelledby="s3">
+    <div class="sec-h"><span class="n">§ 3</span><h2 id="s3" class="disp">Oggi — al telefono, a lezione appena finita</h2><p>390 px. La riga di Matita e il «+» stanno sopra la barra: il pollice arriva a registrare senza cercare.</p></div>
+    <div class="mob-wrap">
+      <div class="phone" aria-label="Mock: schermata Oggi su mobile">
+        <div class="ph-top"><div class="wordmark"><span class="logo" aria-hidden="true" style="width:24px;height:24px;font-size:15px">R</span><span>Ripeti<i>Flow</i></span></div><span class="avatar">DM</span></div>
+        <div class="ph-h"><div class="meta">martedì 6 ottobre</div><h3 class="disp">Oggi</h3></div>
+
+        <div class="ph-sec">
+          <div class="hd"><h4>Prossime lezioni</h4><a href="#">Agenda</a></div>
+          <div class="ag"><div class="tm">15:00<span>16:30</span></div><div><div class="nm">Giulia Ferri</div><div class="sj">Matematica · <span class="marker" style="color:var(--rf-ink)">tra 40 min</span></div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
+          <div class="ag"><div class="tm">17:00<span>18:00</span></div><div><div class="nm">Luca Bianchi</div><div class="sj">Latino</div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
+          <div class="dayline">mer 7 ott</div>
+          <div class="ag"><div class="tm">16:00<span>17:30</span></div><div><div class="nm">Marco Rossi</div><div class="sj">Fisica</div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
+        </div>
+
+        <div class="ph-sec">
+          <div class="hd"><h4>Conti aperti</h4><a href="#">Studenti</a></div>
+          <div class="acc"><span class="nm">Marco Rossi</span><span class="r deb"><span class="w">deve</span><span class="mono">120,00 €</span></span></div>
+          <div class="acc"><span class="nm">Giulia Ferri</span><span class="r deb"><span class="w">deve</span><span class="mono">67,00 €</span></span></div>
+          <div class="acc"><span class="nm">Elena Greco</span><span class="r deb"><span class="w">deve</span><span class="mono">25,00 €</span></span></div>
+          <div class="acc"><span class="nm">Luca Bianchi</span><span class="r cre"><span class="w">credito</span><span class="mono">40,00 €</span><span class="h">≈ 2 h</span></span></div>
+          <div class="tot dbl"><span>Da incassare</span><span class="mono">212,00 €</span></div>
+          <div class="tot"><span>Anticipi ricevuti</span><span class="mono" style="font-size:17px;font-weight:400;color:var(--rf-ink-2)">40,00 €</span></div>
+        </div>
+
+        <div class="ph-bottom">
+          <label class="mline">
+            <svg class="ic"><use href="#i-pencil-simple-line"/></svg>
+            <input type="text" aria-label="Scrivi a Matita" placeholder="Scrivi a Matita…">
+            <button class="btn btn-ink btn-sq" type="button" aria-label="Nuova lezione"><svg class="ic"><use href="#i-plus"/></svg></button>
+          </label>
+          <nav class="tabs" aria-label="Navigazione">
+            <a href="#" aria-current="page"><svg class="ic"><use href="#i-house"/></svg>Oggi</a>
+            <a href="#"><svg class="ic"><use href="#i-student"/></svg>Studenti</a>
+            <a href="#"><svg class="ic"><use href="#i-calendar-dots"/></svg>Agenda</a>
+            <a href="#"><svg class="ic"><use href="#i-gear-six"/></svg>Altro</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="notes">
+        <ol>
+          <li><b>Cosa c'è adesso prima di tutto.</b> Il primo blocco è la prossima lezione con il tempo che manca evidenziato; poi i conti aperti, ordinati per importo.</li>
+          <li><b>Mai numeri con il segno da interpretare.</b> «deve 67,00 €» e «credito 40,00 € ≈ 2 h» con la parola, non −67 o +40. Il colore ripete, non sostituisce.</li>
+          <li><b>Il credito si legge anche in ore.</b> Chi paga in anticipo pensa in lezioni: <span class="num">40,00 € ÷ 20,00 €/h ≈ 2 h</span>.</li>
+          <li><b>Totali con la doppia riga</b> come nei registri contabili: è l'unico «grassetto» che serve.</li>
+          <li><b>Righe da 52–60 px</b>, testo 16 px, target ≥ 44 px. Nessuna card con ombra: le righe bastano.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. TIPOGRAFIA + COLORE ============ -->
+  <section class="sec" aria-labelledby="s4">
+    <div class="sec-h"><span class="n">§ 4</span><h2 id="s4" class="disp">Tipografia e colore</h2><p>Tre voci: il libro (Literata), l'interfaccia (Schibsted Grotesk), la calcolatrice (IBM Plex Mono).</p></div>
+    <div class="two">
+      <div>
+        <div class="ts"><div class="tok"><b>display-xl</b>64/68 · 40/44</div><div class="s disp" style="font-size:var(--rf-text-display-xl);line-height:var(--rf-leading-display-xl)">Ripetizioni</div></div>
+        <div class="ts"><div class="tok"><b>display-l</b>44/48 · 34/38</div><div class="s disp" style="font-size:var(--rf-text-display-l);line-height:var(--rf-leading-display-l);font-weight:500;font-variant-numeric:tabular-nums lining-nums">1.234,50 €</div></div>
+        <div class="ts"><div class="tok"><b>display-m</b>32/38 · 28/32</div><div class="s disp" style="font-size:var(--rf-text-display-m);line-height:var(--rf-leading-display-m)">Giulia Ferri</div></div>
+        <div class="ts"><div class="tok"><b>display-s</b>24/30 · 22/28</div><div class="s disp" style="font-size:var(--rf-text-display-s);line-height:var(--rf-leading-display-s)">Prossime lezioni</div></div>
+        <div class="ts"><div class="tok"><b>voice</b>17/26 italic</div><div class="s voice">«ieri 15–16:30 matematica con Luca, equazioni di secondo grado»</div></div>
+        <div class="ts"><div class="tok"><b>title</b>18/24 · 600</div><div class="s" style="font-size:18px;line-height:24px;font-weight:600">Registra pagamento</div></div>
+        <div class="ts"><div class="tok"><b>body</b>16/24 · 400</div><div class="s">Ogni lezione si svolge nello stesso giorno, da un orario di inizio a uno di fine.</div></div>
+        <div class="ts"><div class="tok"><b>body-s</b>14/20</div><div class="s" style="font-size:14px;line-height:20px;color:var(--rf-ink-2)">Ultimo pagamento il 2 ott · sincronizzata con Google Calendar</div></div>
+        <div class="ts"><div class="tok"><b>caption</b>12/16 · MAIUSC.</div><div class="s cap">Data · Voce · Saldo</div></div>
+        <div class="ts"><div class="tok"><b>money</b>15/20 · Plex Mono</div><div class="s mono" style="font-size:15px">30,00 &nbsp; 1.111,10 &nbsp; 12.480,00 &nbsp; 67,00 €</div></div>
+        <div class="ts"><div class="tok"><b>money-l</b>24/28 · Literata 500</div><div class="s disp" style="font-size:24px;font-weight:500;font-variant-numeric:tabular-nums lining-nums">Da incassare 212,00 €</div></div>
+      </div>
+      <div>
+        <div class="sw"><span class="chip" style="background:var(--rf-paper)"></span><span class="n">Carta<span>--rf-paper</span></span><span class="v"><b>#F4F1E8</b><br>#16171B</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-paper-raised)"></span><span class="n">Foglio<span>--rf-paper-raised</span></span><span class="v"><b>#FBFAF6</b><br>#1E1F24</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-rule)"></span><span class="n">Riga<span>--rf-rule · decorativa</span></span><span class="v"><b>#D9D2C2</b><br>#303138</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-control)"></span><span class="n">Bordo controlli<span>--rf-control · 3,41 / 3,91</span></span><span class="v"><b>#8A8170</b><br>#74757D</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-ink)"></span><span class="n">Inchiostro<span>--rf-ink · 15,06 / 14,52</span></span><span class="v"><b>#1A1C23</b><br>#ECE7DC</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-ink-3)"></span><span class="n">Inchiostro 3<span>--rf-ink-3 · 5,10 / 6,30</span></span><span class="v"><b>#62666F</b><br>#9D998F</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-debito)"></span><span class="n">Debito — ti deve<span>--rf-debito · 6,17 / 7,48</span></span><span class="v"><b>#A3302A</b><br>#F28B7F</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-credito)"></span><span class="n">Credito<span>--rf-credito · 7,21 / 8,51</span></span><span class="v"><b>#1D4C9E</b><br>#93B3F3</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-pencil)"></span><span class="n">Grafite — bozza<span>--rf-pencil · 5,61 / 7,58</span></span><span class="v"><b>#5A606A</b><br>#A4A9B1</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-highlight)"></span><span class="n">Evidenziatore<span>--rf-highlight · ink sopra 13,00 / 6,54</span></span><span class="v"><b>#F5E27A</b><br>#5B5018</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-margin)"></span><span class="n">Margine<span>--rf-margin · decorativo</span></span><span class="v"><b>#C9776F</b><br>#7A4540</span></div>
+        <p class="meta" style="margin-top:10px">Rapporti WCAG su Carta: chiaro / scuro. In grassetto il valore chiaro.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. COMPONENTI ============ -->
+  <section class="sec" aria-labelledby="s5">
+    <div class="sec-h"><span class="n">§ 5</span><h2 id="s5" class="disp">Componenti</h2><p>Angoli a 3 px, altezza 44 px, un solo bottone pieno per schermata.</p></div>
+    <div class="comp">
+      <div>
+        <h3>Bottoni</h3>
+        <div class="stack">
+          <button class="btn btn-ink" type="button">Salva lezione</button>
+          <button class="btn btn-line" type="button">Annulla</button>
+          <button class="btn btn-quiet" type="button">Modifica</button>
+          <button class="btn btn-danger" type="button"><svg class="ic ic-18"><use href="#i-eraser"/></svg>Elimina</button>
+        </div>
+        <h3 style="margin-top:28px">Saldo</h3>
+        <div class="stack">
+          <span class="badge b-deb">Ti deve <span class="mono">120,00 €</span></span>
+          <span class="badge b-cre">Credito <span class="mono">40,00 € · 2 h</span></span>
+          <span class="badge b-pari">In pari</span>
+          <span class="badge b-bozza">Bozza</span>
+        </div>
+        <h3 style="margin-top:28px">Avviso</h3>
+        <div class="toast" role="status"><svg class="ic ic-18"><use href="#i-check"/></svg><span class="grow">Lezione registrata · in Calendar</span><button type="button">Annulla</button></div>
+      </div>
+      <div>
+        <h3>Modulo lezione</h3>
+        <div class="field"><label>Studente</label><div class="inp"><svg class="ic ic-18"><use href="#i-student"/></svg><span class="grow">Giulia Ferri</span><svg class="ic ic-16" style="transform:rotate(90deg)"><use href="#i-caret-right"/></svg></div></div>
+        <div class="field"><label>Giorno</label><div class="inp focus"><svg class="ic ic-18"><use href="#i-calendar-dots"/></svg><span class="grow">mar 6 ott 2026</span><span class="meta">oggi</span></div></div>
+        <div class="field"><label>Orario</label><div class="timepair"><div class="inp mono" style="justify-content:center">15:00</div><span class="meta">→</span><div class="inp mono" style="justify-content:center">16:30</div></div><div class="hint"><span class="num">1 h 30 min · 33,00 € a 22,00 €/h</span></div></div>
+      </div>
+      <div>
+        <h3>Modulo pagamento</h3>
+        <div class="field"><label>Importo ricevuto</label><div class="inp"><span class="grow mono" style="font-size:18px;font-weight:500">100,00</span><span class="mono" style="color:var(--rf-ink-3)">€</span></div></div>
+        <div class="field"><label>Come</label><div class="seg lg" role="group" aria-label="Metodo"><button type="button" aria-pressed="true"><svg class="ic ic-16"><use href="#i-money"/></svg>Contanti</button><button type="button" aria-pressed="false"><svg class="ic ic-16"><use href="#i-bank"/></svg>Bonifico</button></div></div>
+        <div class="field"><label>Argomento</label><div class="inp err"><span class="grow" style="color:var(--rf-ink-3)">es. limiti notevoli</span></div><div class="hint e"><svg class="ic ic-16"><use href="#i-warning"/></svg>Scrivi l'argomento (max 120 caratteri)</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>RipetiFlow · sistema visivo «Registro» v1.0 · documentazione in docs/design/</span>
+    <span class="mono">1.234,50 € · mar 6 ott · 15:00–16:30</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement, btns=document.querySelectorAll('.top .seg button');
+  function cur(){return root.getAttribute('data-theme')||'system'}
+  function paint(){btns.forEach(function(b){b.setAttribute('aria-pressed', String(b.dataset.t===cur()))})}
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    var t=b.dataset.t; if(t==='system'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',t)}
+    try{localStorage.setItem('rf-theme',t)}catch(e){} paint();})});
+  paint();
+  var ink=document.getElementById('inkBtn'), row=document.getElementById('draftRow');
+  if(ink&&row){ink.addEventListener('click',function(){row.classList.add('inking');
+    setTimeout(function(){row.classList.remove('draft','inking');var s=row.querySelector('.src');if(s)s.remove();
+      var n=row.querySelector('.note');if(n)n.textContent='Registrata ora · in Google Calendar';
+      var w=row.querySelector('.saldo');if(w){w.classList.add('deb');w.querySelector('.w').textContent='deve'}
+    },parseFloat(getComputedStyle(root).getPropertyValue('--rf-dur-ink'))||0)})}
+})();
+</script>
+</body>
+</html>

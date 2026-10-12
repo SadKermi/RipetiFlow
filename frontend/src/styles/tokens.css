@@ -1,0 +1,371 @@
+/* =====================================================================
+   RipetiFlow — Design tokens «Registro» v1.0
+   Concetto: inchiostro e matita su carta rigata.
+   Documentazione: docs/design/02-design-system.md
+
+   Uso (Tailwind v4):
+     @import "tailwindcss";
+     @import "./tokens.css";
+   I token runtime (--rf-*) funzionano anche senza Tailwind.
+
+   Tema: chiaro di default su :root.
+     - Scuro automatico con prefers-color-scheme se <html> NON ha data-theme="light".
+     - Forzato con <html data-theme="dark"> / <html data-theme="light">.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Token runtime — tema chiaro (default)
+   --------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* Carta (superfici) */
+  --rf-paper: #f4f1e8;          /* fondo pagina */
+  --rf-paper-raised: #fbfaf6;   /* foglio sopra il fondo: righe, sheet, popover */
+  --rf-paper-sunk: #eae5d8;     /* incavi: campi in sola lettura, barra Matita a riposo */
+  --rf-rule: #d9d2c2;           /* righe del registro (decorative, 1px) */
+  --rf-rule-strong: #b9b09d;    /* filetti di sezione, intestazioni colonna */
+  --rf-control: #8a8170;        /* bordi di input/controlli — 3,41:1 su carta */
+  --rf-margin: #c9776f;         /* linea di margine rossa del registro (decorativa) */
+
+  /* Inchiostro (testo) */
+  --rf-ink: #1a1c23;            /* testo primario, bottone primario — 15,06:1 */
+  --rf-ink-2: #454952;          /* testo secondario — 7,99:1 */
+  --rf-ink-3: #62666f;          /* meta, didascalie — 5,10:1 (4,58:1 su sunk) */
+  --rf-on-ink: #f4f1e8;         /* testo su fondo inchiostro */
+
+  /* Semantica contabile */
+  --rf-debito: #a3302a;         /* "ti deve" — rosso registro, 6,17:1 */
+  --rf-debito-wash: #f4ded8;    /* fondo badge debito — testo debito 5,40:1 */
+  --rf-credito: #1d4c9e;        /* "in credito" — blu matita, 7,21:1 */
+  --rf-credito-wash: #dfe6f3;   /* fondo badge credito — testo credito 6,49:1 */
+  --rf-pari: var(--rf-ink-2);   /* saldo zero: nessun colore */
+
+  /* Matita (bozze proposte dall'assistente) */
+  --rf-pencil: #5a606a;         /* testo grafite — 5,61:1 */
+  --rf-pencil-line: #7e848e;    /* bordo tratteggiato bozza — 3,33:1 */
+  --rf-pencil-hatch: rgb(90 96 106 / 0.075); /* tratteggio 45° di sfondo */
+
+  /* Evidenziatore (oggi, adesso, token riconosciuti, focus) */
+  --rf-highlight: #f5e27a;      /* solo come fondo; testo sopra = --rf-ink (13,00:1) */
+
+  /* Focus: contorno inchiostro + alone evidenziatore */
+  --rf-focus-ring: var(--rf-ink);
+  --rf-focus-halo: var(--rf-highlight);
+
+  /* Stati UI */
+  --rf-danger: var(--rf-debito);
+  --rf-scrim: rgb(26 28 35 / 0.36);
+  --rf-shadow-popover: 0 10px 28px -14px rgb(26 28 35 / 0.30);
+  --rf-shadow-sheet: 0 28px 64px -28px rgb(26 28 35 / 0.42);
+
+  /* Tipografia — famiglie (nomi Fontsource + fallback Google Fonts) */
+  --rf-font-display: "Literata Variable", "Literata", Georgia, "Times New Roman", serif;
+  --rf-font-ui: "Schibsted Grotesk Variable", "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rf-font-money: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Tipografia — scala (size / line-height). Valori mobile; desktop in @media sotto */
+  --rf-text-display-xl: 2.5rem;      --rf-leading-display-xl: 2.75rem;   /* 40/44 → 64/68 */
+  --rf-text-display-l: 2.125rem;     --rf-leading-display-l: 2.375rem;   /* 34/38 → 44/48 */
+  --rf-text-display-m: 1.75rem;      --rf-leading-display-m: 2rem;       /* 28/32 → 32/38 */
+  --rf-text-display-s: 1.375rem;     --rf-leading-display-s: 1.75rem;    /* 22/28 → 24/30 */
+  --rf-text-title: 1.125rem;         --rf-leading-title: 1.5rem;         /* 18/24 */
+  --rf-text-body: 1rem;              --rf-leading-body: 1.5rem;          /* 16/24 */
+  --rf-text-body-s: 0.875rem;        --rf-leading-body-s: 1.25rem;       /* 14/20 */
+  --rf-text-caption: 0.75rem;        --rf-leading-caption: 1rem;         /* 12/16 */
+  --rf-text-money-l: 1.5rem;         --rf-leading-money-l: 1.75rem;      /* 24/28 */
+  --rf-text-money: 0.9375rem;        --rf-leading-money: 1.25rem;        /* 15/20 */
+  --rf-text-money-s: 0.8125rem;      --rf-leading-money-s: 1rem;         /* 13/16 */
+  --rf-text-voice: 1.0625rem;        --rf-leading-voice: 1.625rem;       /* 17/26 Matita */
+  --rf-tracking-display: -0.012em;
+  --rf-tracking-caption: 0.06em;     /* solo intestazioni di colonna MAIUSCOLE */
+
+  /* Spaziatura (base 4px) */
+  --rf-space-1: 0.25rem;  /*  4 */
+  --rf-space-2: 0.5rem;   /*  8 */
+  --rf-space-3: 0.75rem;  /* 12 */
+  --rf-space-4: 1rem;     /* 16 */
+  --rf-space-5: 1.25rem;  /* 20 */
+  --rf-space-6: 1.5rem;   /* 24 */
+  --rf-space-8: 2rem;     /* 32 */
+  --rf-space-10: 2.5rem;  /* 40 */
+  --rf-space-12: 3rem;    /* 48 */
+  --rf-space-16: 4rem;    /* 64 */
+  --rf-space-20: 5rem;    /* 80 */
+
+  /* Misure strutturali */
+  --rf-touch: 2.75rem;          /* 44px: target minimo */
+  --rf-control-h: 2.75rem;      /* 44px: input, bottoni */
+  --rf-control-h-sm: 2.25rem;   /* 36px: solo desktop, mai su mobile */
+  --rf-row-h: 3.5rem;           /* 56px: riga registro mobile */
+  --rf-row-h-dense: 3rem;       /* 48px: riga registro desktop */
+  --rf-gutter: 1rem;            /* 16px mobile */
+  --rf-content-max: 75rem;      /* 1200px */
+  --rf-ledger-max: 55rem;       /* 880px */
+  --rf-aside-w: 21rem;          /* 336px colonna frontespizio studente */
+  --rf-tabbar-h: 4rem;          /* 64px + safe-area */
+
+  /* Raggi: angoli quasi vivi, niente rounded-2xl */
+  --rf-radius-0: 0;
+  --rf-radius-1: 3px;           /* bottoni, input, badge */
+  --rf-radius-2: 6px;           /* popover, dialog, card di Matita */
+  --rf-radius-sheet: 14px;      /* solo angoli superiori dei bottom sheet mobile */
+
+  /* Righe e filetti */
+  --rf-hairline: 1px;
+  --rf-rule-section: 2px;       /* filetto inchiostro sopra le sezioni */
+  --rf-rule-total: 3px;         /* doppia riga sotto i totali (border-style: double) */
+  --rf-dash: 6px;               /* passo tratteggio bozze (via background, non border) */
+
+  /* Movimento */
+  --rf-dur-1: 120ms;            /* hover, pressione, colore */
+  --rf-dur-2: 180ms;            /* popover, segmented, toast */
+  --rf-dur-3: 240ms;            /* sheet, dialog */
+  --rf-dur-ink: 420ms;          /* matita → inchiostro (conferma bozza) */
+  --rf-dur-think: 1400ms;       /* ciclo "Matita sta scrivendo" */
+  --rf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --rf-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --rf-ease-ink: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Livelli */
+  --rf-z-sticky: 10;
+  --rf-z-matita: 20;
+  --rf-z-overlay: 40;
+  --rf-z-toast: 50;
+}
+
+/* Scala desktop */
+@media (min-width: 64rem) {
+  :root {
+    --rf-text-display-xl: 4rem;      --rf-leading-display-xl: 4.25rem;
+    --rf-text-display-l: 2.75rem;    --rf-leading-display-l: 3rem;
+    --rf-text-display-m: 2rem;       --rf-leading-display-m: 2.375rem;
+    --rf-text-display-s: 1.5rem;     --rf-leading-display-s: 1.875rem;
+    --rf-gutter: 2.5rem;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   2. Tema scuro «Notte» — stessi nomi, valori diversi
+   (blocco duplicato di proposito: sistema + forzato)
+   --------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --rf-paper: #16171b;
+    --rf-paper-raised: #1e1f24;
+    --rf-paper-sunk: #101114;
+    --rf-rule: #303138;
+    --rf-rule-strong: #4a4b52;
+    --rf-control: #74757d;        /* 3,91:1 */
+    --rf-margin: #7a4540;
+    --rf-ink: #ece7dc;            /* 14,52:1 */
+    --rf-ink-2: #c2bdb1;          /* 9,56:1 */
+    --rf-ink-3: #9d998f;          /* 6,30:1 */
+    --rf-on-ink: #16171b;
+    --rf-debito: #f28b7f;         /* 7,48:1 */
+    --rf-debito-wash: #3b2320;
+    --rf-credito: #93b3f3;        /* 8,51:1 */
+    --rf-credito-wash: #1c2840;
+    --rf-pencil: #a4a9b1;         /* 7,58:1 */
+    --rf-pencil-line: #7c828b;    /* 4,63:1 */
+    --rf-pencil-hatch: rgb(164 169 177 / 0.08);
+    --rf-highlight: #5b5018;      /* testo sopra = --rf-ink (6,54:1) */
+    --rf-scrim: rgb(0 0 0 / 0.55);
+    --rf-shadow-popover: 0 10px 28px -14px rgb(0 0 0 / 0.65);
+    --rf-shadow-sheet: 0 28px 64px -28px rgb(0 0 0 / 0.75);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --rf-paper: #16171b;
+  --rf-paper-raised: #1e1f24;
+  --rf-paper-sunk: #101114;
+  --rf-rule: #303138;
+  --rf-rule-strong: #4a4b52;
+  --rf-control: #74757d;
+  --rf-margin: #7a4540;
+  --rf-ink: #ece7dc;
+  --rf-ink-2: #c2bdb1;
+  --rf-ink-3: #9d998f;
+  --rf-on-ink: #16171b;
+  --rf-debito: #f28b7f;
+  --rf-debito-wash: #3b2320;
+  --rf-credito: #93b3f3;
+  --rf-credito-wash: #1c2840;
+  --rf-pencil: #a4a9b1;
+  --rf-pencil-line: #7c828b;
+  --rf-pencil-hatch: rgb(164 169 177 / 0.08);
+  --rf-highlight: #5b5018;
+  --rf-scrim: rgb(0 0 0 / 0.55);
+  --rf-shadow-popover: 0 10px 28px -14px rgb(0 0 0 / 0.65);
+  --rf-shadow-sheet: 0 28px 64px -28px rgb(0 0 0 / 0.75);
+}
+
+/* ---------------------------------------------------------------------
+   3. Movimento ridotto: niente trasformazioni, niente loop
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rf-dur-1: 0ms;
+    --rf-dur-2: 0ms;
+    --rf-dur-3: 0ms;
+    --rf-dur-ink: 0ms;
+    --rf-dur-think: 0ms;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   4. Base minima (opzionale ma consigliata)
+   --------------------------------------------------------------------- */
+html {
+  background: var(--rf-paper);
+  color: var(--rf-ink);
+  font-family: var(--rf-font-ui);
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+body {
+  background: var(--rf-paper);
+  font-size: var(--rf-text-body);
+  line-height: var(--rf-leading-body);
+}
+:focus-visible {
+  outline: 2px solid var(--rf-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--rf-focus-halo);
+}
+::selection {
+  background: var(--rf-highlight);
+  color: var(--rf-ink);
+}
+
+/* ---------------------------------------------------------------------
+   5. Tailwind v4 — mappatura token → utility
+   `inline` = le utility puntano alle variabili, quindi seguono il tema.
+   Le palette di default (incluso indigo) vengono rimosse di proposito.
+   --------------------------------------------------------------------- */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-paper: var(--rf-paper);
+  --color-paper-raised: var(--rf-paper-raised);
+  --color-paper-sunk: var(--rf-paper-sunk);
+  --color-rule: var(--rf-rule);
+  --color-rule-strong: var(--rf-rule-strong);
+  --color-control: var(--rf-control);
+  --color-margin: var(--rf-margin);
+  --color-ink: var(--rf-ink);
+  --color-ink-2: var(--rf-ink-2);
+  --color-ink-3: var(--rf-ink-3);
+  --color-on-ink: var(--rf-on-ink);
+  --color-debito: var(--rf-debito);
+  --color-debito-wash: var(--rf-debito-wash);
+  --color-credito: var(--rf-credito);
+  --color-credito-wash: var(--rf-credito-wash);
+  --color-pencil: var(--rf-pencil);
+  --color-pencil-line: var(--rf-pencil-line);
+  --color-highlight: var(--rf-highlight);
+  --color-danger: var(--rf-danger);
+
+  --font-*: initial;
+  --font-display: var(--rf-font-display);
+  --font-ui: var(--rf-font-ui);
+  --font-money: var(--rf-font-money);
+  --font-sans: var(--rf-font-ui);
+  --font-serif: var(--rf-font-display);
+  --font-mono: var(--rf-font-money);
+
+  --text-display-xl: var(--rf-text-display-xl);
+  --text-display-xl--line-height: var(--rf-leading-display-xl);
+  --text-display-l: var(--rf-text-display-l);
+  --text-display-l--line-height: var(--rf-leading-display-l);
+  --text-display-m: var(--rf-text-display-m);
+  --text-display-m--line-height: var(--rf-leading-display-m);
+  --text-display-s: var(--rf-text-display-s);
+  --text-display-s--line-height: var(--rf-leading-display-s);
+  --text-title: var(--rf-text-title);
+  --text-title--line-height: var(--rf-leading-title);
+  --text-body: var(--rf-text-body);
+  --text-body--line-height: var(--rf-leading-body);
+  --text-body-s: var(--rf-text-body-s);
+  --text-body-s--line-height: var(--rf-leading-body-s);
+  --text-caption: var(--rf-text-caption);
+  --text-caption--line-height: var(--rf-leading-caption);
+  --text-money-l: var(--rf-text-money-l);
+  --text-money-l--line-height: var(--rf-leading-money-l);
+  --text-money: var(--rf-text-money);
+  --text-money--line-height: var(--rf-leading-money);
+  --text-money-s: var(--rf-text-money-s);
+  --text-money-s--line-height: var(--rf-leading-money-s);
+  --text-voice: var(--rf-text-voice);
+  --text-voice--line-height: var(--rf-leading-voice);
+
+  --radius-*: initial;
+  --radius-none: 0;
+  --radius-xs: var(--rf-radius-1);
+  --radius-sm: var(--rf-radius-2);
+  --radius-sheet: var(--rf-radius-sheet);
+
+  --shadow-*: initial;
+  --shadow-popover: var(--rf-shadow-popover);
+  --shadow-sheet: var(--rf-shadow-sheet);
+
+  --spacing-touch: var(--rf-touch);
+  --spacing-row: var(--rf-row-h);
+  --spacing-row-dense: var(--rf-row-h-dense);
+  --spacing-aside: var(--rf-aside-w);
+  --container-ledger: var(--rf-ledger-max);
+  --container-content: var(--rf-content-max);
+
+  --ease-out: var(--rf-ease-out);
+  --ease-in: var(--rf-ease-in);
+  --ease-ink: var(--rf-ease-ink);
+}
+
+/* Variante `dark:` coerente con data-theme + preferenza di sistema.
+   Preferire i token (che cambiano da soli); usare `dark:` solo per eccezioni. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* Utility di progetto */
+@utility tabular {
+  font-family: var(--rf-font-money);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+@utility pencil-hatch {
+  background-image: repeating-linear-gradient(-45deg, transparent 0 7px, var(--rf-pencil-hatch) 7px 8px);
+}
+@utility pencil-dash {
+  /* tratteggio grafite disegnato con gradienti: controllabile e animabile */
+  background-image:
+    linear-gradient(90deg, var(--rf-pencil-line) 50%, transparent 0),
+    linear-gradient(90deg, var(--rf-pencil-line) 50%, transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) 50%, transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) 50%, transparent 0);
+  background-size: 12px 1.5px, 12px 1.5px, 1.5px 12px, 1.5px 12px;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+}
+@utility marker {
+  /* evidenziatore sulla metà bassa della riga di testo */
+  background-image: linear-gradient(transparent 52%, var(--rf-highlight) 52%, var(--rf-highlight) 92%, transparent 92%);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+@utility rule-total {
+  border-bottom: var(--rf-rule-total) double var(--rf-ink);
+}
