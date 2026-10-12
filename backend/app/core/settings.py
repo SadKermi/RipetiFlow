@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field, SecretStr, model_validator
+from cryptography.fernet import Fernet
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEV_JWT_ISSUER = "ripetiflow-dev"
 DEFAULT_DEV_JWT_SECRET = "ripetiflow-dev-only-secret-never-use-in-production"  # noqa: S105
+# The only identity a demo (HS256) token may carry (D-30): never a real tutor.
+DEV_DEMO_USER_ID = uuid.UUID("00000000-0000-4000-8000-00000000de30")
+DEV_DEMO_EMAIL = "demo@ripetiflow.local"
+_LOCAL_DB_HOSTS = {"localhost", "127.0.0.1", "::1", "postgres", "db"}
 
 DEFAULT_MODELS: dict[str, str] = {
     "openai": "gpt-6-luna",
@@ -37,7 +44,8 @@ DEFAULT_PRICES: dict[str, ModelPrice] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_env: Literal["development", "production"] = "development"
+    # Fail closed: without an explicit APP_ENV=development the app behaves as production.
+    app_env: Literal["development", "production"] = "production"
     log_level: str = "INFO"
 
     database_url: str = "postgresql://postgres@localhost:54329/ripetiflow"
@@ -73,10 +81,40 @@ class Settings(BaseSettings):
     dev_auth: bool = False
     dev_jwt_secret: SecretStr = SecretStr(DEFAULT_DEV_JWT_SECRET)
 
+    @field_validator(
+        "google_client_secret", "token_encryption_key", "openai_api_key", "anthropic_api_key", mode="before"
+    )
+    @classmethod
+    def _blank_secret_is_unset(cls, value: Any) -> Any:
+        # `KEY=` in a .env copied from the template means "not configured", not "empty key".
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("token_encryption_key")
+    @classmethod
+    def _valid_fernet_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            try:
+                Fernet(value.get_secret_value())
+            except ValueError as exc:
+                raise ValueError(
+                    "TOKEN_ENCRYPTION_KEY non è una chiave Fernet valida (32 byte in base64 url-safe). "
+                    'Generala con: python -c "from cryptography.fernet import Fernet; '
+                    'print(Fernet.generate_key().decode())"'
+                ) from exc
+        return value
+
     @model_validator(mode="after")
     def _guard_dev_auth(self) -> Settings:
-        if self.dev_auth and self.app_env == "production":
+        if not self.dev_auth:
+            return self
+        if self.app_env == "production":
             raise ValueError("DEV_AUTH=1 non è ammesso con APP_ENV=production")
+        host = urlsplit(self.database_url).hostname or ""
+        if host not in _LOCAL_DB_HOSTS:
+            # Demo tokens are signed with a shared secret: never against a real (remote) database.
+            raise ValueError(f"DEV_AUTH=1 è ammesso solo con un database locale (host attuale: {host!r})")
         return self
 
     @property
@@ -108,10 +146,12 @@ class Settings(BaseSettings):
     @property
     def assistant_available(self) -> bool:
         if self.assistant_provider == "openai":
-            return self.openai_api_key is not None
-        if self.assistant_provider == "anthropic":
-            return self.anthropic_api_key is not None
-        return False
+            key = self.openai_api_key
+        elif self.assistant_provider == "anthropic":
+            key = self.anthropic_api_key
+        else:
+            return False
+        return key is not None and bool(key.get_secret_value())
 
 
 @lru_cache

@@ -223,10 +223,15 @@ async def student_activity(
             cursor = int(before)
         except ValueError as exc:
             raise invalid("Cursore non valido.", "before") from exc
+    # The log stores the student of the NEW row; a lesson or payment moved to another student must
+    # still show in the history of the student it left (D-18: nothing disappears from the record).
     rows = await conn.fetch(
         """select id, entity, entity_id, action, before, after, source, occurred_at
            from app.activity_log
-           where tutor_id = (select auth.uid()) and student_id = $1 and ($2::bigint is null or id < $2)
+           where tutor_id = (select auth.uid())
+             and (student_id = $1
+                  or (entity in ('lesson', 'payment') and before ->> 'student_id' = $1::text))
+             and ($2::bigint is null or id < $2)
            order by id desc limit $3""",
         student_id,
         cursor,

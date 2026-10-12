@@ -23,17 +23,16 @@ create table if not exists auth.users (
 );
 
 -- Same semantics as Supabase: the subject of the JWT claims set for the current transaction.
+-- After a transaction-local set_config() ends, a pooled connection reads the setting back as ''
+-- (not NULL), hence the nullif() around both settings.
 create or replace function auth.uid()
 returns uuid
 language sql
 stable
 as $$
-  select nullif(
-    coalesce(
-      current_setting('request.jwt.claim.sub', true),
-      (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')
-    ),
-    ''
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
   )::uuid;
 $$;
 

@@ -37,7 +37,14 @@ async def update_profile(conn: Conn, patch: ProfilePatch) -> Profile:
     for required in ("timezone", "default_lesson_minutes"):
         if required in fields and getattr(patch, required) is None:
             errors.append(FieldError(required, "Campo obbligatorio."))
-    if patch.timezone is not None and not _valid_timezone(patch.timezone):
+    if patch.timezone is not None and not (
+        _valid_timezone(patch.timezone)
+        # Balances, ledger and agenda compute "settled" in SQL with `at time zone`: the name must
+        # also be known to Postgres (Python's tzdata accepts legacy aliases Postgres may reject).
+        and await conn.fetchval(
+            "select exists(select 1 from pg_timezone_names where name = $1)", patch.timezone
+        )
+    ):
         errors.append(FieldError("timezone", "Fuso orario non valido (es. Europe/Rome)."))
     if errors:
         raise invalid_many(errors)

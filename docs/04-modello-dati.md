@@ -26,6 +26,7 @@ Funzioni: app.rate_for(student, date)
 | Lezione nello stesso giorno, minuti interi | `check (end_time > start_time)`, `check (seconds = 0)` |
 | Importo lezione = tariffa × durata, arrotondato al centesimo | colonna generata `amount_cents` |
 | Tariffa congelata sulla lezione | `hourly_rate_cents` sulla lezione, riempita da `lessons_fill_rate` con `rate_for()` se non inviata |
+| Tariffa scritta a mano mai ricalcolata | flag `rate_overridden` deciso dal trigger quando la tariffa viene scritta (diversa dallo storico → `true`); il ricalcolo tocca solo `rate_overridden = false` (migrazione `20261012161742`) |
 | Saldo mai memorizzato (quindi mai incoerente) | vista `student_balances` |
 | Saldo progressivo nel libro mastro | vista `ledger_entries` (window function) |
 | Storico immutabile delle modifiche | trigger `log_activity` → `activity_log` (nessun permesso di scrittura per gli utenti) |

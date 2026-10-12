@@ -56,6 +56,8 @@ UserConn = Annotated[Conn, Depends(user_conn, scope="function")]
 
 
 class Problem(BaseModel):
+    """RFC 9457 problem details, served as `application/problem+json`."""
+
     type: str
     title: str
     status: int
@@ -64,7 +66,22 @@ class Problem(BaseModel):
     errors: list[dict[str, str]] | None = None
 
 
-PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
-    status: {"model": Problem, "content": {"application/problem+json": {}}}
-    for status in (401, 403, 404, 409, 422)
+_DESCRIPTIONS = {
+    401: "Accesso richiesto o sessione scaduta",
+    403: "Operazione non consentita",
+    404: "Risorsa non trovata",
+    409: "Conflitto con i dati esistenti",
+    422: "Dati non validi",
+    429: "Limite di richieste raggiunto",
+    502: "Servizio esterno non disponibile",
+    503: "Funzione non configurata o non disponibile",
 }
+
+
+def problem_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    """OpenAPI entries for error responses. `model` registers the Problem schema; the media type is
+    moved from application/json to application/problem+json by `app.main.customize_openapi`."""
+    return {status: {"model": Problem, "description": _DESCRIPTIONS[status]} for status in statuses}
+
+
+PROBLEM_RESPONSES = problem_responses(401, 403, 404, 409, 422)

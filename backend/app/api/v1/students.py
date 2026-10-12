@@ -104,8 +104,10 @@ async def create_rate(student_id: uuid.UUID, body: RateCreate, conn: UserConn) -
 
 
 @router.delete("/students/{student_id}/rates/{rate_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_rate(student_id: uuid.UUID, rate_id: uuid.UUID, conn: UserConn) -> Response:
-    await rates.delete_rate(conn, student_id, rate_id)
+async def delete_rate(
+    student_id: uuid.UUID, rate_id: uuid.UUID, conn: UserConn, reprice_existing: bool = False
+) -> Response:
+    await rates.delete_rate(conn, student_id, rate_id, reprice_existing=reprice_existing)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

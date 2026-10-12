@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Body, Query, Response, status
 
 from app.api.deps import UserConn
 from app.domain import lessons, payments
@@ -62,8 +62,11 @@ async def delete_lesson(lesson_id: uuid.UUID, conn: UserConn) -> Response:
     status_code=status.HTTP_201_CREATED,
     tags=["lessons"],
 )
-async def duplicate_lesson(lesson_id: uuid.UUID, body: LessonDuplicate, conn: UserConn) -> Lesson:
-    return await lessons.duplicate_lesson(conn, lesson_id, body, await tutor_clock(conn))
+async def duplicate_lesson(
+    lesson_id: uuid.UUID, conn: UserConn, body: Annotated[LessonDuplicate | None, Body()] = None
+) -> Lesson:
+    # Every field is optional, so the body itself is too (no body = same student, same day).
+    return await lessons.duplicate_lesson(conn, lesson_id, body or LessonDuplicate(), await tutor_clock(conn))
 
 
 @router.post("/payments", response_model=Payment, status_code=status.HTTP_201_CREATED, tags=["payments"])

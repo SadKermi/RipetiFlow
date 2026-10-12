@@ -147,7 +147,9 @@ class Matita:
 
         turns = request.messages
         messages = [ChatMessage(t.role, t.content) for t in turns[:-1]]
-        messages.append(ChatMessage("user", f"{_context_block(clock, profile, student)}\n{turns[-1].content}"))
+        messages.append(
+            ChatMessage("user", f"{_context_block(clock, profile, student)}\n{turns[-1].content}")
+        )
         ctx = ToolContext(db=self.db, user=user, clock=clock)
 
         async def run_tool(name: str, arguments: Any) -> str:
@@ -188,7 +190,9 @@ class Matita:
             abs(c)
             for d in enriched.drafts
             if isinstance(d, LessonDraft | PaymentDraft)
-            for c in ((d.amount_cents, d.hourly_rate_cents) if isinstance(d, LessonDraft) else (d.amount_cents,))
+            for c in (
+                (d.amount_cents, d.hourly_rate_cents) if isinstance(d, LessonDraft) else (d.amount_cents,)
+            )
         }
         user_text = "\n".join(t.content for t in turns if t.role == "user")
         unverified = unverified_amounts(reply, ctx.known_cents, user_text, draft_cents)

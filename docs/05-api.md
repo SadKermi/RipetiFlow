@@ -11,7 +11,7 @@ Il frontend genera i tipi TypeScript da `/api/openapi.json` (`npm run gen:api`).
   `GET /api/health`, `GET /api/v1/public/config` e (solo in dev) `POST /api/v1/dev/login`.
 - Header opzionale `X-RipetiFlow-Source: assistant` sulle scritture che confermano una bozza di
   Matita → il registro attività marca la modifica come `assistant`.
-- ID: UUID v4 stringa. Date: `YYYY-MM-DD`. Orari: `HH:MM` (24h, minuti interi).
+- ID: UUID v4 stringa (eccezione: `Activity.id` e i cursori sono stringhe opache). Date: `YYYY-MM-DD`. Orari: `HH:MM` (24h, minuti interi).
   Timestamp: ISO 8601 con offset. Importi: **interi in centesimi** (`*_cents`). Durate: minuti.
 - Liste: `{"items": [...], "next_cursor": string|null}` quando paginabili, altrimenti `{"items": [...]}`.
 - Errori: `application/problem+json` (RFC 9457):
@@ -20,9 +20,12 @@ Il frontend genera i tipi TypeScript da `/api/openapi.json` (`npm run gen:api`).
    "detail": "L'orario di fine deve essere successivo a quello di inizio.",
    "code": "validation_error", "errors": [{"field": "end_time", "message": "..."}]}
   ```
-  Codici (`code`): `unauthorized` 401, `forbidden` 403, `not_found` 404, `conflict` 409,
-  `validation_error` 422, `rate_limited` 429, `upstream_error` 502, `internal_error` 500.
+  Codici (`code`): `unauthorized` 401, `forbidden` 403, `not_found` 404, `method_not_allowed` 405,
+  `conflict` 409, `validation_error` 422, `rate_limited` 429, `internal_error` 500,
+  `upstream_error` 502, `unavailable` 503 (funzione non configurata: assistente o calendario).
   Messaggi `title`/`detail` **in italiano**, pronti per la UI. Mai stack trace.
+  Un riferimento inesistente o di un altro utente nel body (es. `student_id`, `subject_id`) è un
+  errore del modulo: 422 sul campo, non 404/409. Qualunque percorso sconosciuto sotto `/api` → 404.
 
 ## Health e configurazione pubblica
 
@@ -87,9 +90,15 @@ Il frontend genera i tipi TypeScript da `/api/openapi.json` (`npm run gen:api`).
 | Metodo | Percorso | Body | Risposta |
 |---|---|---|---|
 | GET | `/students/{id}/rates` | — | `{items: Rate[]}` (desc per data) |
-| POST | `/students/{id}/rates/preview` | `{hourly_rate_cents, effective_from}` | `{affected_lessons, current_total_cents, new_total_cents, delta_cents}` — lezioni già registrate con data ≥ `effective_from` |
+| POST | `/students/{id}/rates/preview` | `{hourly_rate_cents, effective_from}` | `{affected_lessons, current_total_cents, new_total_cents, delta_cents}` — vedi "Regola di ricalcolo" |
 | POST | `/students/{id}/rates` | `{hourly_rate_cents, effective_from, reprice_existing: bool}` | `{rate: Rate, repriced_lessons: int}` 201 (409 se esiste già una tariffa con la stessa data) |
-| DELETE | `/students/{id}/rates/{rate_id}` | — | 204 (422 se è l'unica tariffa) |
+| DELETE | `/students/{id}/rates/{rate_id}?reprice_existing=false` | — | 204 (422 se è l'unica tariffa). Con `reprice_existing=true` le lezioni governate dalla tariffa eliminata tornano alla tariffa dello storico |
+
+**Regola di ricalcolo (D-16).** Una tariffa con decorrenza D governa le lezioni con data in
+[D, decorrenza della tariffa successiva). Il ricalcolo (`reprice_existing`) tocca solo le lezioni di
+quella finestra che **seguono lo storico**: una lezione con tariffa **scritta a mano** diversa da
+quella dello storico (sconto, lezione doppia) non viene mai modificata. Il database decide il flag
+(`rate_overridden`) quando la tariffa viene scritta; l'anteprima usa esattamente la stessa regola.
 
 ### Libro mastro e storico
 
@@ -117,8 +126,12 @@ Il frontend genera i tipi TypeScript da `/api/openapi.json` (`npm run gen:api`).
  calendar: {status, error|null}, created_at, updated_at}
 ```
 `LessonInput`: `{student_id, subject_id?, date, start_time, end_time, hourly_rate_cents?, topic?, notes?}`
-- `hourly_rate_cents` omesso → tariffa valida alla data (dallo storico). In PATCH, la tariffa
-  **non** si ricalcola cambiando data: si cambia solo se inviata esplicitamente.
+- `hourly_rate_cents` omesso → tariffa valida alla data (dallo storico). Una tariffa inviata uguale
+  a quella dello storico conta come "segue lo storico"; diversa, come "scritta a mano".
+- In PATCH la tariffa **non** si ricalcola cambiando data: si cambia solo se inviata esplicitamente.
+  Eccezione: spostando la lezione su **un altro studente** senza inviare la tariffa, una lezione che
+  seguiva lo storico prende la tariffa dello storico del nuovo studente (una tariffa scritta a mano
+  resta invariata).
 - Validazioni: fine > inizio, minuti interi, durata ≤ 12h, data entro ±2 anni da oggi.
 
 | Metodo | Percorso | Body | Risposta |
@@ -128,7 +141,7 @@ Il frontend genera i tipi TypeScript da `/api/openapi.json` (`npm run gen:api`).
 | GET | `/lessons/{id}` | — | `Lesson` |
 | PATCH | `/lessons/{id}` | `LessonInput` parziale | `Lesson` |
 | DELETE | `/lessons/{id}` | — | 204 |
-| POST | `/lessons/{id}/duplicate` | `{student_id?, date?}` | `Lesson` 201 (lezioni di gruppo / ripetizione settimanale) |
+| POST | `/lessons/{id}/duplicate` | `{student_id?, date?}` (body facoltativo) | `Lesson` 201 (lezioni di gruppo / ripetizione settimanale). Stesso studente: una tariffa scritta a mano viene copiata, altrimenti si riprende dallo storico alla nuova data; altro studente: sempre dal suo storico |
 
 ## Pagamenti
 
@@ -196,7 +209,9 @@ Response: {reply: string,                                               // testo
 
 | Metodo | Percorso | Risposta |
 |---|---|---|
-| POST | `/dev/login` | `{access_token, user: {id, email}}` — token firmato con chiave locale per l'utente demo |
-| POST | `/dev/seed` | `{students, lessons, payments}` — (ri)crea i dati di esempio dell'utente demo |
+| POST | `/dev/login` | `{access_token, user: {id, email}}` — token firmato con chiave locale per l'utente demo (creato al primo uso) |
+| POST | `/dev/seed` | `{students, lessons, payments}` — cancella e ricrea i dati di esempio dell'utente demo |
 
-Queste rotte **non vengono montate** in produzione; l'avvio fallisce se `DEV_AUTH=1` con `APP_ENV=production`.
+Queste rotte **non vengono montate** in produzione. L'avvio fallisce se `DEV_AUTH=1` con
+`APP_ENV=production` **oppure** con un `DATABASE_URL` non locale. I token demo valgono solo per
+l'utente demo (id fisso), mai per un utente reale.

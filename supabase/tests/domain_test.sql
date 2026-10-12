@@ -105,6 +105,40 @@ begin
     'real edit logged once, bookkeeping-only update ignored';
 end $$;
 
+-- rate_overridden (D-16): decided when the rate is written, never guessed later.
+do $$
+begin
+  assert not (select rate_overridden from app.lessons where id = '20000000-0000-0000-0000-000000000001'),
+    'rate from history is not an override';
+  assert (select rate_overridden from app.lessons where id = '20000000-0000-0000-0000-000000000003'),
+    'explicit different rate is an override';
+end $$;
+
+-- An explicit rate equal to the history is not an override (clients may always send the prefill).
+insert into app.lessons (id, student_id, lesson_date, start_time, end_time, hourly_rate_cents) values
+  ('20000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000001', '2026-09-22', '09:00', '10:00', 2500);
+-- Typing a different rate later marks it; typing the history rate back clears it.
+update app.lessons set hourly_rate_cents = 1800 where id = '20000000-0000-0000-0000-000000000005';
+do $$
+begin
+  assert (select rate_overridden from app.lessons where id = '20000000-0000-0000-0000-000000000005'),
+    'edited rate becomes an override';
+end $$;
+update app.lessons set hourly_rate_cents = 2500 where id = '20000000-0000-0000-0000-000000000005';
+do $$
+begin
+  assert not (select rate_overridden from app.lessons where id = '20000000-0000-0000-0000-000000000005'),
+    'rate edited back to the history rate is no longer an override';
+end $$;
+-- A date change alone never re-derives the rate nor the flag.
+update app.lessons set lesson_date = '2026-06-01' where id = '20000000-0000-0000-0000-000000000005';
+do $$
+begin
+  assert (select hourly_rate_cents from app.lessons where id = '20000000-0000-0000-0000-000000000005') = 2500,
+    'date change keeps the rate snapshot';
+end $$;
+delete from app.lessons where id = '20000000-0000-0000-0000-000000000005';
+
 -- Users cannot write the activity log or Google tokens directly.
 do $$
 begin

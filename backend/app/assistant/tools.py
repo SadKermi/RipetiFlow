@@ -42,7 +42,12 @@ def _nullable(schema: dict[str, Any]) -> dict[str, Any]:
 
 
 def _params(properties: dict[str, Any]) -> dict[str, Any]:
-    return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
 
 
 _DATE = {"type": "string", "description": "Data AAAA-MM-GG"}
@@ -74,7 +79,8 @@ TOOL_SPECS: list[ToolSpec] = [
     ),
     ToolSpec(
         "list_payments",
-        "Pagamenti ricevuti in un intervallo di date (massimo 366 giorni), facoltativamente di un solo studente.",
+        "Pagamenti ricevuti in un intervallo di date (massimo 366 giorni), "
+        "facoltativamente di un solo studente.",
         _params({"from": _DATE, "to": _DATE, "student_id": _nullable(_STUDENT_ID)}),
     ),
     ToolSpec(
@@ -208,7 +214,9 @@ async def _find_students(conn: Conn, ctx: ToolContext, args: _FindArgs) -> dict[
             }
             for r in matches
         ],
-        "note": "Se più studenti corrispondono, chiedi all'utente quale intende." if len(matches) > 1 else None,
+        "note": "Se più studenti corrispondono, chiedi all'utente quale intende."
+        if len(matches) > 1
+        else None,
     }
 
 
@@ -310,7 +318,10 @@ async def _list_lessons(conn: Conn, ctx: ToolContext, args: _RangeArgs) -> dict[
                 "start_time": f"{r['start_time']:%H:%M}",
                 "end_time": f"{r['end_time']:%H:%M}",
                 "duration_minutes": r["duration_minutes"],
-                "student": {"id": str(r["student_id"]), "name": display_name(r["first_name"], r["last_name"])},
+                "student": {
+                    "id": str(r["student_id"]),
+                    "name": display_name(r["first_name"], r["last_name"]),
+                },
                 "subject": r["subject"],
                 "topic": r["topic"],
                 "hourly_rate_cents": r["hourly_rate_cents"],
@@ -343,7 +354,10 @@ async def _list_payments(conn: Conn, ctx: ToolContext, args: _RangeArgs) -> dict
             {
                 "id": str(r["id"]),
                 "date": r["paid_on"].isoformat(),
-                "student": {"id": str(r["student_id"]), "name": display_name(r["first_name"], r["last_name"])},
+                "student": {
+                    "id": str(r["student_id"]),
+                    "name": display_name(r["first_name"], r["last_name"]),
+                },
                 "amount_cents": r["amount_cents"],
                 "amount": format_euro(r["amount_cents"]),
                 "method": METHOD_LABELS.get(r["method"], r["method"]),

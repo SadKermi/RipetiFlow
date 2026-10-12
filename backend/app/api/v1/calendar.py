@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response, status
 
-from app.api.deps import CurrentUserDep, UserConn
+from app.api.deps import CurrentUserDep, UserConn, problem_responses
 from app.calendar.sync import CalendarSync
 from app.schemas import CalendarConnect, CalendarQueued, CalendarResync, CalendarStatus
 
-router = APIRouter(prefix="/integrations/google-calendar", tags=["calendar"])
+router = APIRouter(
+    prefix="/integrations/google-calendar", tags=["calendar"], responses=problem_responses(502, 503)
+)
 
 
 def _sync(request: Request) -> CalendarSync:

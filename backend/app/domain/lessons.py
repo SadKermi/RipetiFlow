@@ -151,7 +151,9 @@ _PATCH_COLUMNS = {
 
 async def update_lesson(conn: Conn, lesson_id: uuid.UUID, patch: LessonPatch, clock: TutorClock) -> Lesson:
     current = await conn.fetchrow(
-        "select lesson_date, start_time, end_time from app.lessons where id = $1 for update", lesson_id
+        """select student_id, lesson_date, start_time, end_time, rate_overridden
+           from app.lessons where id = $1 for update""",
+        lesson_id,
     )
     if current is None:
         raise not_found("Lezione non trovata.")
@@ -174,6 +176,13 @@ async def update_lesson(conn: Conn, lesson_id: uuid.UUID, patch: LessonPatch, cl
 
     # D-16: changing the date never re-derives the rate; only an explicit hourly_rate_cents does.
     columns = [(col, getattr(patch, attr)) for attr, col in _PATCH_COLUMNS.items() if attr in fields]
+    moved = patch.student_id is not None and patch.student_id != current["student_id"]
+    if moved and "hourly_rate_cents" not in fields and not current["rate_overridden"]:
+        # A lesson that followed the old student's history follows the new student's history.
+        rate = await conn.fetchval("select app.rate_for($1, $2)", patch.student_id, day)
+        if rate is None:
+            raise invalid("Lo studente non ha una tariffa.", "student_id")
+        columns.append(("hourly_rate_cents", rate))
     if columns:
         assignments = ", ".join(f"{col} = ${i}" for i, (col, _) in enumerate(columns, start=2))
         await conn.execute(
@@ -194,7 +203,8 @@ async def duplicate_lesson(
     conn: Conn, lesson_id: uuid.UUID, data: LessonDuplicate, clock: TutorClock
 ) -> Lesson:
     source = await conn.fetchrow(
-        """select student_id, subject_id, lesson_date, start_time, end_time, hourly_rate_cents, topic, notes
+        """select student_id, subject_id, lesson_date, start_time, end_time, hourly_rate_cents,
+                  rate_overridden, topic, notes
            from app.lessons where id = $1""",
         lesson_id,
     )
@@ -205,7 +215,10 @@ async def duplicate_lesson(
     if data.student_id is not None:
         await require_student(conn, student_id, "student_id")
     raise_if(check_date_window(day, clock.today))
-    same_slot = student_id == source["student_id"] and day == source["lesson_date"]
+    same_student = student_id == source["student_id"]
+    # Same student: a hand-typed price (discount, double lesson) is part of the lesson and is copied;
+    # a history-derived one is re-derived at the new date. Another student: always their history.
+    keep_rate = same_student and (source["rate_overridden"] or day == source["lesson_date"])
     new_id = await _insert(
         conn,
         {
@@ -214,8 +227,7 @@ async def duplicate_lesson(
             "lesson_date": day,
             "start_time": source["start_time"],
             "end_time": source["end_time"],
-            # Another student or another day -> rate from that student's history at that date.
-            "hourly_rate_cents": source["hourly_rate_cents"] if same_slot else None,
+            "hourly_rate_cents": source["hourly_rate_cents"] if keep_rate else None,
             "topic": source["topic"],
             "notes": source["notes"],
         },

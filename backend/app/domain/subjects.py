@@ -43,22 +43,24 @@ async def create_subject(conn: Conn, data: SubjectCreate) -> Subject:
 async def update_subject(conn: Conn, subject_id: uuid.UUID, patch: SubjectPatch) -> Subject:
     await get_subject(conn, subject_id)
     fields = patch.model_fields_set
-    await conn.execute(
-        """update app.subjects set
-             name = case when $2 then coalesce($3, name) else name end,
-             position = case when $4 then coalesce($5, position) else position end,
-             archived_at = case when $6 and $7 is not null
-                                then (case when $7 then coalesce(archived_at, now()) else null end)
-                                else archived_at end
-           where id = $1""",
-        subject_id,
-        "name" in fields,
-        patch.name,
-        "position" in fields,
-        patch.position,
-        "archived" in fields,
-        patch.archived,
-    )
+    # Explicit null for a field is "leave as is": every column here is non-nullable or a toggle.
+    assignments: list[str] = []
+    values: list[object] = []
+    if "name" in fields and patch.name is not None:
+        values.append(patch.name)
+        assignments.append(f"name = ${len(values) + 1}::text")
+    if "position" in fields and patch.position is not None:
+        values.append(patch.position)
+        assignments.append(f"position = ${len(values) + 1}::smallint")
+    if "archived" in fields and patch.archived is not None:
+        assignments.append(
+            "archived_at = coalesce(archived_at, now())" if patch.archived else "archived_at = null"
+        )
+    if assignments:
+        # Fragments are constants from this function; values are bound parameters.
+        await conn.execute(
+            f"update app.subjects set {', '.join(assignments)} where id = $1", subject_id, *values
+        )
     return await get_subject(conn, subject_id)
 
 

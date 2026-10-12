@@ -211,7 +211,11 @@ def _pydantic_message(err: dict[str, Any]) -> str:
     if kind in ("too_long",):
         return f"Troppi elementi (massimo {ctx.get('max_length')})."
     if kind in ("too_short",):
-        return f"Servono almeno {ctx.get('min_length')} elementi."
+        minimum = ctx.get("min_length")
+        if ctx.get("field_type") != "List":
+            # Blank required text: the strip validator makes Pydantic report a generic too_short.
+            return "Campo obbligatorio." if minimum == 1 else "Testo troppo corto."
+        return "Serve almeno 1 elemento." if minimum == 1 else f"Servono almeno {minimum} elementi."
     if kind == "string_pattern_mismatch":
         return "Formato non valido."
     return "Valore non valido."
@@ -226,7 +230,14 @@ def _field_name(loc: Sequence[Any]) -> str:
 
 
 def validation_errors(errors: Sequence[Any]) -> list[FieldError]:
-    return [FieldError(_field_name(e.get("loc", ())), _pydantic_message(e)) for e in errors]
+    # A malformed JSON body is located at ("body", <char offset>): report it on the body itself.
+    return [
+        FieldError(
+            "body" if e.get("type") == "json_invalid" else _field_name(e.get("loc", ())),
+            _pydantic_message(e),
+        )
+        for e in errors
+    ]
 
 
 # ---------------------------------------------------------------------------------------------

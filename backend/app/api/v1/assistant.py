@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from app.api.deps import CurrentUserDep
+from app.api.deps import CurrentUserDep, problem_responses
 from app.assistant.orchestrator import Matita
 from app.assistant.schemas import AssistantReply, AssistantRequest
 from app.core.errors import ApiError
 
-router = APIRouter(tags=["assistant"])
+router = APIRouter(tags=["assistant"], responses=problem_responses(429, 502, 503))
 
 
 @router.post("/assistant/messages", response_model=AssistantReply)
