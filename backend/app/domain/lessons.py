@@ -217,8 +217,9 @@ async def duplicate_lesson(
     raise_if(check_date_window(day, clock.today))
     same_student = student_id == source["student_id"]
     # Same student: a hand-typed price (discount, double lesson) is part of the lesson and is copied;
-    # a history-derived one is re-derived at the new date. Another student: always their history.
-    keep_rate = same_student and (source["rate_overridden"] or day == source["lesson_date"])
+    # a history-derived one is re-derived from the history at the copy's date (even the same day: the
+    # history may have changed since). Another student: always their history.
+    keep_rate = same_student and source["rate_overridden"]
     new_id = await _insert(
         conn,
         {

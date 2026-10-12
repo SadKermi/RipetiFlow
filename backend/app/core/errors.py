@@ -207,7 +207,9 @@ def _pydantic_message(err: dict[str, Any]) -> str:
     if kind in ("less_than_equal", "less_than"):
         return f"Il valore massimo è {ctx.get('le', ctx.get('lt'))}."
     if kind in ("literal_error", "enum"):
-        return f"Valore non ammesso (valori possibili: {ctx.get('expected')})."
+        # Pydantic phrases the list in English ("'a', 'b' or 'c'"): rebuild it as a plain list.
+        expected = str(ctx.get("expected", "")).replace("'", "").replace(" or ", ", ")
+        return f"Valore non ammesso (valori possibili: {expected})."
     if kind in ("too_long",):
         return f"Troppi elementi (massimo {ctx.get('max_length')})."
     if kind in ("too_short",):
