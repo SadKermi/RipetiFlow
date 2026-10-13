@@ -383,8 +383,9 @@
   /* Bozza di Matita (riga del registro, card): tratteggio grafite sul bordo + campitura a 45°
      in UN SOLO background a 5 livelli (i 4 lati sopra, la campitura sotto). Trattino 6px, vuoto
      5px, spessore 1,5px (--rf-dash*). Il testo si colora a parte: text-pencil.
-     Per staccare il tratteggio dai filetti vicini, metterla su uno pseudo-elemento:
-     before:absolute before:inset-0.5 before:pencil-draft (il contenuto resta sopra). */
+     Per staccare il tratteggio dai filetti vicini, metterla su uno pseudo-elemento dietro al testo:
+     relative isolate before:absolute before:inset-0.5 before:-z-10 before:pencil-draft
+     (isolate + z negativo: la campitura sta sopra il fondo della riga ma sotto il contenuto). */
   background-image:
     linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
     linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),

@@ -131,7 +131,7 @@ Screenshot conservati nel repo (compressi, ≤ 70 KB, solo uso interno di riferi
 
 1. **Aprire l'app e sapere due cose**: le prossime lezioni e chi deve/chi è in credito. Nessun grafico serve a questo.
 2. **Registrare una lezione in < 15 secondi dal telefono** appena finita: studente (di solito quello della lezione appena prevista), orario già proposto, materia ricordata, argomento facoltativo.
-3. **Contanti e bonifico**, nessun gateway. Pagamenti anche **in anticipo** → credito che si pensa **in ore** («mi ha pagato 4 lezioni»).
+3. **Contanti e bonifico** (più «altro»: Satispay, PayPal…), nessun gateway. Pagamenti anche **in anticipo** → credito che si pensa **in ore** («mi ha pagato 4 lezioni»).
 4. **Tariffe che cambiano nel tempo** (inflazione, cambio di scuola): ogni lezione deve congelare la tariffa del giorno in cui è stata fatta; il registro mostra il cambio come una riga.
 5. **Promemoria ai genitori** via WhatsApp: testo pronto, cortese, con il conto.
 6. **Calendar solo in uscita**: la lezione diventa un evento Google; spostarla in Calendar non cambia il registro (va detto chiaramente in UI).
@@ -201,7 +201,7 @@ Per *AI slop* intendo l'interfaccia «media» che un generatore produce senza vi
 
 1. **Niente texture di carta, niente font a mano, niente timbri.** La «carta» è solo un colore caldo (`#F4F1E8`) e un secondo foglio (`#FBFAF6`). Il registro è fatto di **righe da 1 px**, di una **linea di margine rossa** (come sui quaderni di scuola italiani) e della **doppia riga sotto i totali** (convenzione contabile). Sono segni grafici, non imitazioni di materiali.
 2. **Niente «Dare/Avere» in interfaccia.** I termini contabili confondono chi non è ragioniere. Le colonne si chiamano **Lezione** e **Pagato**, il saldo dice **«ti deve»** o **«credito»**. Il registro tiene la logica contabile, non il gergo.
-3. **Matita non è un personaggio.** È lo **stato** di una riga: grafite `#5A606A`, bordo tratteggiato, campitura a 45°. «Ripassare a penna» è il gesto di conferma: il tratteggio sparisce, una riga d'inchiostro si disegna in 420 ms, il testo passa da grafite a inchiostro. Il nome è femminile («la matita»): Matita parla al femminile («Non sono riuscita a leggere la riga»).
+3. **Matita non è un personaggio.** È lo **stato** di una riga: grafite `#5A606A`, bordo tratteggiato, campitura a 45°. «Ripassare a penna» è il gesto di conferma: il tratteggio sparisce, una riga d'inchiostro si disegna in 420 ms, il testo passa da grafite a inchiostro. Matita parla in prima persona al maschile, come i testi fissi che il server restituisce («Non sono riuscito a preparare una risposta affidabile…»): una sola voce tra interfaccia e backend (02 §9.13).
 
 **Perché funziona per questo utente**
 - Il tutor italiano conosce il **registro** (di classe, elettronico) e la **matita rossa e blu** dei professori: rosso per l'errore, blu per l'osservazione. Noi usiamo **rosso = ti deve** (in italiano «essere in rosso»), **blu = in credito**: è una convenzione già nella testa dell'utente, non da imparare.

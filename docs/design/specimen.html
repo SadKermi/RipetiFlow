@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RipetiFlow · Registro</title>
-<meta name="description" content="Specimen del sistema visivo «Registro» di RipetiFlow: tipografia, colori, libro mastro, Matita, mock mobile.">
+<meta name="description" content="Specimen del sistema visivo «Registro» di RipetiFlow v1.1: libro mastro con lezioni programmate, Matita, Oggi su mobile, tipografia, colori e componenti.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,300..700&family=Schibsted+Grotesk:wght@400..700&display=swap" rel="stylesheet">
@@ -13,8 +13,9 @@
   var v=(h==='dark'||h==='light')?h:t; if(v==='dark'||v==='light') document.documentElement.setAttribute('data-theme',v);})();
 </script>
 <style>
+/* Token runtime copiati da frontend/src/styles/tokens.css (sezioni 1–4) */
 /* =====================================================================
-   RipetiFlow — Design tokens «Registro» v1.0
+   RipetiFlow — Design tokens «Registro» v1.1
    Concetto: inchiostro e matita su carta rigata.
    Documentazione: docs/design/02-design-system.md
 
@@ -22,6 +23,9 @@
      @import "tailwindcss";
      @import "./tokens.css";
    I token runtime (--rf-*) funzionano anche senza Tailwind.
+   Le regole sugli elementi (html, body, :focus-visible, ::selection) stanno in @layer base:
+   qualunque utility (bg-*, focus-visible:outline-none, shadow-*) le batte senza !important.
+   @theme, @custom-variant e @utility restano al primo livello (Tailwind li vuole lì).
 
    Tema: chiaro di default su :root.
      - Scuro automatico con prefers-color-scheme se <html> NON ha data-theme="light".
@@ -114,7 +118,7 @@
   --rf-control-h-sm: 2.25rem;   /* 36px: solo desktop, mai su mobile */
   --rf-row-h: 3.5rem;           /* 56px: riga registro mobile */
   --rf-row-h-dense: 3rem;       /* 48px: riga registro desktop */
-  --rf-gutter: 1rem;            /* 16px mobile */
+  --rf-gutter: 1rem;            /* 16px mobile · 24px tablet · 40px desktop */
   --rf-content-max: 75rem;      /* 1200px */
   --rf-ledger-max: 55rem;       /* 880px */
   --rf-aside-w: 21rem;          /* 336px colonna frontespizio studente */
@@ -130,7 +134,10 @@
   --rf-hairline: 1px;
   --rf-rule-section: 2px;       /* filetto inchiostro sopra le sezioni */
   --rf-rule-total: 3px;         /* doppia riga sotto i totali (border-style: double) */
-  --rf-dash: 6px;               /* passo tratteggio bozze (via background, non border) */
+  --rf-dash: 6px;               /* tratteggio bozze: trattino… */
+  --rf-dash-gap: 5px;           /* …vuoto… */
+  --rf-dash-w: 1.5px;           /* …spessore (disegnato con gradienti, non border-style: dashed) */
+  --rf-dash-step: calc(var(--rf-dash) + var(--rf-dash-gap));
 
   /* Movimento */
   --rf-dur-1: 120ms;            /* hover, pressione, colore */
@@ -149,7 +156,14 @@
   --rf-z-toast: 50;
 }
 
-/* Scala desktop */
+/* Tablet: gutter 24px */
+@media (min-width: 48rem) {
+  :root {
+    --rf-gutter: 1.5rem;
+  }
+}
+
+/* Scala desktop (dichiarata dopo il tablet: a ≥ 1024px vince questa) */
 @media (min-width: 64rem) {
   :root {
     --rf-text-display-xl: 4rem;      --rf-leading-display-xl: 4.25rem;
@@ -232,31 +246,34 @@
 }
 
 /* ---------------------------------------------------------------------
-   4. Base minima (opzionale ma consigliata)
+   4. Base minima, nel layer «base»: le utility di Tailwind la sovrascrivono sempre
    --------------------------------------------------------------------- */
-html {
-  background: var(--rf-paper);
-  color: var(--rf-ink);
-  font-family: var(--rf-font-ui);
-  font-size: 100%;
-  -webkit-text-size-adjust: 100%;
-  text-rendering: optimizeLegibility;
+@layer base {
+  html {
+    background: var(--rf-paper);
+    color: var(--rf-ink);
+    font-family: var(--rf-font-ui);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--rf-paper);
+    font-size: var(--rf-text-body);
+    line-height: var(--rf-leading-body);
+  }
+  /* Focus: contorno inchiostro + alone evidenziatore, entrambi FUORI dal bordo.
+     L'errore di un campo è un bordo 2px (utility field-error), quindi resta visibile col focus. */
+  :focus-visible {
+    outline: 2px solid var(--rf-focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--rf-focus-halo);
+  }
+  ::selection {
+    background: var(--rf-highlight);
+    color: var(--rf-ink);
+  }
 }
-body {
-  background: var(--rf-paper);
-  font-size: var(--rf-text-body);
-  line-height: var(--rf-leading-body);
-}
-:focus-visible {
-  outline: 2px solid var(--rf-focus-ring);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 5px var(--rf-focus-halo);
-}
-::selection {
-  background: var(--rf-highlight);
-  color: var(--rf-ink);
-}
-
 
 
 /* ===================== specimen ===================== */
@@ -264,6 +281,8 @@ body {
 html,body{margin:0}
 body{font-family:var(--rf-font-ui);color:var(--rf-ink);background:var(--rf-paper);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .ic{width:20px;height:20px;fill:currentColor;flex:none}
+.ic-12{width:12px;height:12px}
+.ic-14{width:14px;height:14px}
 .ic-16{width:16px;height:16px}
 .ic-18{width:18px;height:18px}
 .wrap{max-width:1312px;margin:0 auto;padding:0 var(--rf-gutter)}
@@ -272,10 +291,14 @@ body{font-family:var(--rf-font-ui);color:var(--rf-ink);background:var(--rf-paper
 .cap{font-size:var(--rf-text-caption);line-height:var(--rf-leading-caption);font-weight:600;letter-spacing:var(--rf-tracking-caption);text-transform:uppercase;color:var(--rf-ink-3)}
 .meta{font-size:var(--rf-text-body-s);line-height:var(--rf-leading-body-s);color:var(--rf-ink-3)}
 .voice{font-family:var(--rf-font-display);font-style:italic;font-size:var(--rf-text-voice);line-height:var(--rf-leading-voice);color:var(--rf-ink-2)}
-.marker{background-image:linear-gradient(transparent 52%,var(--rf-highlight) 52%,var(--rf-highlight) 92%,transparent 92%);-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .08em}
+.marker{padding:0 .08em}
 .num{font-variant-numeric:lining-nums proportional-nums;font-style:normal;white-space:nowrap}
+.approx{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
+.approx .ic{width:14px;height:14px}
 .deb{color:var(--rf-debito)} .cre{color:var(--rf-credito)}
 a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
+/* link in linea: area di tocco 44 px senza cambiare la riga */
+.tap{display:inline-block;padding:12px 4px;margin:-12px -4px}
 
 /* masthead */
 .top{display:flex;align-items:center;gap:24px;height:64px;border-bottom:1px solid var(--rf-rule)}
@@ -288,7 +311,7 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .seg button{all:unset;cursor:pointer;height:32px;padding:0 12px;border-radius:2px;font-size:14px;font-weight:500;color:var(--rf-ink-2);display:inline-flex;align-items:center;gap:6px;transition:background var(--rf-dur-1),color var(--rf-dur-1)}
 .seg button[aria-pressed="true"]{background:var(--rf-ink);color:var(--rf-on-ink)}
 .seg button:focus-visible{outline:2px solid var(--rf-focus-ring);outline-offset:2px;box-shadow:0 0 0 5px var(--rf-focus-halo)}
-.seg.lg button{height:38px;padding:0 16px;font-size:15px}
+.seg.lg button{height:38px;padding:0 14px;font-size:15px}
 
 .hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:48px;padding:56px 0 40px;align-items:end}
 .hero h1{margin:0;font-size:var(--rf-text-display-xl);line-height:var(--rf-leading-display-xl)}
@@ -304,7 +327,7 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .sec-h{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:16px;align-items:baseline;border-top:2px solid var(--rf-ink);padding-top:12px;margin-bottom:28px}
 .sec-h .n{font-family:var(--rf-font-money);font-size:13px;color:var(--rf-ink-3)}
 .sec-h h2{margin:0;font-size:var(--rf-text-display-s);line-height:var(--rf-leading-display-s)}
-.sec-h p{margin:0;color:var(--rf-ink-3);font-size:14px;max-width:44ch;text-align:right}
+.sec-h p{margin:0;color:var(--rf-ink-3);font-size:14px;max-width:46ch;text-align:right}
 
 /* buttons */
 .btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--rf-control-h);padding:0 16px;border-radius:var(--rf-radius-1);font:600 15px/1 var(--rf-font-ui);white-space:nowrap;transition:background var(--rf-dur-1) var(--rf-ease-out),color var(--rf-dur-1),border-color var(--rf-dur-1)}
@@ -318,14 +341,15 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .btn-danger{border:1px solid var(--rf-debito);color:var(--rf-debito)}
 .btn-sm{height:var(--rf-control-h-sm);padding:0 12px;font-size:14px}
 .btn-sq{width:var(--rf-control-h);padding:0}
+.btn-sq.btn-sm{width:var(--rf-control-h-sm)}
 
 /* badges */
-.badge{display:inline-flex;align-items:baseline;gap:6px;height:24px;padding:3px 8px 0;border-radius:var(--rf-radius-1);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:var(--rf-radius-1);font-size:12px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
 .badge .mono{font-size:13px;font-weight:500;letter-spacing:0}
 .b-deb{background:var(--rf-debito-wash);color:var(--rf-debito)}
 .b-cre{background:var(--rf-credito-wash);color:var(--rf-credito)}
 .b-pari{box-shadow:inset 0 0 0 1px var(--rf-rule-strong);color:var(--rf-ink-2)}
-.b-bozza{color:var(--rf-pencil);background-image:linear-gradient(90deg,var(--rf-pencil-line) 50%,transparent 0),linear-gradient(90deg,var(--rf-pencil-line) 50%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 50%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 50%,transparent 0);background-size:8px 1px,8px 1px,1px 8px,1px 8px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y}
+.b-bozza{color:var(--rf-pencil)}
 
 /* ===== ledger page ===== */
 .page{display:grid;grid-template-columns:var(--rf-aside-w) minmax(0,1fr);gap:48px;align-items:start}
@@ -336,6 +360,9 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .bal .amt small{font-size:.55em;font-weight:400;margin-left:.15em}
 .bal .amt-w{font-family:var(--rf-font-ui);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:14px;vertical-align:.55em}
 .bal p{margin:0;color:var(--rf-ink-2);font-size:15px;line-height:22px}
+.bal p.prev{margin-top:8px;color:var(--rf-ink-2)}
+.bal p.prev b{font-weight:600;white-space:nowrap}
+.flash{background-image:linear-gradient(transparent 52%,var(--rf-highlight) 52%,var(--rf-highlight) 92%,transparent 92%);color:var(--rf-ink)}
 .aside .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
 .mini{margin-top:28px}
 .mini .row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--rf-rule);font-size:15px}
@@ -371,24 +398,26 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .mline input{all:unset;flex:1;min-width:0;height:44px;font-family:var(--rf-font-display);font-style:italic;font-size:17px;color:var(--rf-ink)}
 .mline input::placeholder{color:var(--rf-pencil);opacity:1}
 .mline:focus-within{box-shadow:0 0 0 2px var(--rf-ink) inset, 0 0 0 5px var(--rf-highlight)}
-.kbd{font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-3);white-space:nowrap;padding:0 4px}
+.kbd{display:inline-flex;align-items:center;gap:2px;font-family:var(--rf-font-money);font-size:12px;line-height:1;color:var(--rf-ink-3);white-space:nowrap;padding:3px 5px;border:1px solid var(--rf-rule-strong);border-radius:3px}
 
-/* pencil draft row */
-.draft{color:var(--rf-pencil)}
-.draft::before{content:"";position:absolute;inset:3px 3px 3px 3px;background-image:repeating-linear-gradient(-45deg,transparent 0 7px,var(--rf-pencil-hatch) 7px 8px);pointer-events:none;transition:opacity var(--rf-dur-ink) var(--rf-ease-ink)}
-.draft::after{content:"";position:absolute;inset:2px;pointer-events:none;background-image:linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0);background-size:11px 1.5px,11px 1.5px,1.5px 11px,1.5px 11px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y;transition:opacity var(--rf-dur-ink) var(--rf-ease-ink)}
+/* pencil draft row: tratteggio + campitura in UN pseudo-elemento (utility pencil-draft), dietro al testo */
+.draft{color:var(--rf-pencil);isolation:isolate}
+.draft::before{content:"";position:absolute;inset:2px;z-index:-1;pointer-events:none;transition:opacity var(--rf-dur-ink) var(--rf-ease-ink)}
 .draft .what b,.draft .d1 b{color:var(--rf-pencil)}
 .draft .what .arg,.draft .d1,.draft .dur{color:var(--rf-pencil)}
 .draft .src{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;grid-column:2 / -1;padding-top:0;padding-bottom:14px}
 .draft .src .from{font-size:13px;color:var(--rf-pencil);flex:1 1 260px}
 .draft .src .from q{font-family:var(--rf-font-display);font-style:italic}
+.warn{display:flex;gap:6px;align-items:flex-start;flex-basis:100%;font-size:14px;line-height:20px;color:var(--rf-ink)}
+.warn .ic{margin-top:2px;color:var(--rf-ink)}
 .draft .ink-line{position:absolute;left:2px;right:2px;bottom:-1px;height:2px;background:var(--rf-ink);transform:scaleX(0);transform-origin:left;transition:transform var(--rf-dur-ink) var(--rf-ease-ink)}
-.draft.inking::before,.draft.inking::after{opacity:0}
+.draft.inking::before{opacity:0}
 .draft.inking{color:var(--rf-ink);transition:color var(--rf-dur-ink)}
 .draft.inking .ink-line{transform:scaleX(1)}
 .draft.inking .what b,.draft.inking .d1 b{color:var(--rf-ink)}
-.cancel .what,.cancel .d1{color:var(--rf-ink-3)}
-.cancel .what b{text-decoration:line-through;text-decoration-thickness:1px;font-weight:500}
+/* programmata: a penna, ma non ancora nel saldo */
+.prog .c-chg{color:var(--rf-ink-3)}
+.prog .what .note{color:var(--rf-ink-2)}
 .rate{min-height:40px;background:var(--rf-paper)}
 .rate>*{padding-top:9px;padding-bottom:9px}
 .rate .what{font-size:14px;color:var(--rf-ink-2);grid-column:2 / -1}
@@ -400,25 +429,31 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .st>.cap{display:flex;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--rf-rule)}
 .st>.cap span:last-child{font-family:var(--rf-font-money);text-transform:none;letter-spacing:0;font-weight:400}
 .scribble{position:absolute;left:44px;width:calc(100% - 64px);bottom:6px;height:10px;overflow:visible}
-.scribble path{fill:none;stroke:var(--rf-pencil);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:420;stroke-dashoffset:420;animation:draw var(--rf-dur-think) var(--rf-ease-ink) infinite;animation-delay:-.55s}
-@keyframes draw{0%{stroke-dashoffset:420}60%{stroke-dashoffset:0}100%{stroke-dashoffset:-420}}
+.scribble path{fill:none;stroke:var(--rf-pencil);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:420;stroke-dashoffset:420;animation:draw var(--rf-dur-think) var(--rf-ease-ink) 3;animation-delay:-.55s;animation-fill-mode:forwards}
+@keyframes draw{0%{stroke-dashoffset:420}60%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
 @media (prefers-reduced-motion:reduce){.scribble path{animation:none;stroke-dasharray:3 5;stroke-dashoffset:0}}
 .card{position:relative;background:var(--rf-paper-raised);border-radius:var(--rf-radius-2);padding:16px 16px 14px}
-.card.pencil::after{content:"";position:absolute;inset:0;border-radius:var(--rf-radius-2);pointer-events:none;background-image:linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(90deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0),linear-gradient(0deg,var(--rf-pencil-line) 55%,transparent 0);background-size:11px 1.5px,11px 1.5px,1.5px 11px,1.5px 11px;background-position:0 0,0 100%,0 0,100% 0;background-repeat:repeat-x,repeat-x,repeat-y,repeat-y}
-.card.pencil{background-image:repeating-linear-gradient(-45deg,transparent 0 7px,var(--rf-pencil-hatch) 7px 8px)}
+.card.pencil{isolation:isolate}
+.card.pencil::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:var(--rf-radius-2);pointer-events:none}
 .card.note{border-left:2px solid var(--rf-ink);border-radius:0 var(--rf-radius-2) var(--rf-radius-2) 0}
 .who{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--rf-pencil);margin-bottom:8px}
 .who .ic{width:16px;height:16px}
 .said{font-family:var(--rf-font-display);font-style:italic;font-size:16px;line-height:26px;color:var(--rf-ink)}
-.fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:12px 0 14px;font-size:14px;line-height:20px}
+.said b{font-family:var(--rf-font-ui);font-style:normal;font-weight:600}
+.read{font-size:13px;line-height:19px;color:var(--rf-pencil)}
+.read q{font-family:var(--rf-font-display);font-style:italic;font-size:15px;color:var(--rf-ink-2)}
+.fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:12px 0 12px;font-size:14px;line-height:20px}
 .fields dt{color:var(--rf-pencil)}
 .fields dd{margin:0;color:var(--rf-ink)}
 .fields .mono{font-size:14px}
+.card .warn{margin:0 0 12px}
 .row-actions{display:flex;flex-wrap:wrap;gap:8px}
 .msg{font-size:15px;line-height:23px;color:var(--rf-ink);background:var(--rf-paper);padding:12px 14px;border-radius:3px;margin:8px 0 12px}
+.card .meta{margin:10px 0 0;font-size:13px;line-height:18px}
 .small-note{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--rf-rule);font-size:14px;line-height:21px;color:var(--rf-ink-2)}
 .small-note .ic{margin-top:1px;color:var(--rf-ink-3)}
 .small-note b{color:var(--rf-ink);font-weight:600}
+.small-note q{color:var(--rf-ink)}
 
 /* ===== type & color ===== */
 .two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:48px}
@@ -438,27 +473,35 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .comp h3{margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--rf-ink-3);padding-bottom:8px;border-bottom:1px solid var(--rf-rule)}
 .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .field{display:block;margin-bottom:14px}
-.field label{display:block;font-size:14px;font-weight:500;color:var(--rf-ink-2);margin-bottom:6px}
+.field label,.field .lab{display:block;font-size:14px;font-weight:500;color:var(--rf-ink-2);margin-bottom:6px}
+.field .lab i{font-style:normal;font-weight:400;color:var(--rf-ink-3)}
 .inp{display:flex;align-items:center;gap:8px;height:var(--rf-control-h);padding:0 12px;border:1px solid var(--rf-control);border-radius:var(--rf-radius-1);background:var(--rf-paper-raised);font-size:16px;color:var(--rf-ink)}
 .inp .ic{color:var(--rf-ink-3)}
 .inp .grow{flex:1}
 .inp.focus{outline:2px solid var(--rf-focus-ring);outline-offset:2px;box-shadow:0 0 0 5px var(--rf-focus-halo)}
-.inp.err{border-color:var(--rf-debito);box-shadow:inset 0 0 0 1px var(--rf-debito)}
 .hint{font-size:13px;line-height:18px;color:var(--rf-ink-3);margin-top:6px}
-.hint.e{color:var(--rf-debito);display:flex;gap:6px;align-items:center}
+.hint.e{color:var(--rf-danger);display:flex;gap:6px;align-items:flex-start}
+.hint.e .ic{margin-top:1px}
 .timepair{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
-.toast{display:flex;align-items:center;gap:12px;background:var(--rf-ink);color:var(--rf-on-ink);border-radius:var(--rf-radius-2);padding:0 8px 0 14px;min-height:48px;font-size:15px;box-shadow:var(--rf-shadow-popover)}
+.timepair>.ic{color:var(--rf-ink-3)}
+.after{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0 0;border-top:1px solid var(--rf-rule);font-size:15px;color:var(--rf-ink-2)}
+.after b{font-weight:600}
+.disclose{display:flex;align-items:center;gap:6px;min-height:44px;font-size:14px;font-weight:500;color:var(--rf-ink-2)}
+.toast{display:flex;align-items:center;gap:12px;background:var(--rf-ink);color:var(--rf-on-ink);border-radius:var(--rf-radius-2);padding:0 4px 0 14px;min-height:48px;font-size:15px;box-shadow:var(--rf-shadow-popover)}
 .toast .grow{flex:1}
-.toast button{all:unset;cursor:pointer;font-weight:600;padding:8px 10px;text-decoration:underline;text-underline-offset:4px}
+.toast button{all:unset;cursor:pointer;font-weight:600;height:44px;padding:0 10px;display:inline-flex;align-items:center;text-decoration:underline;text-underline-offset:4px}
 
 /* ===== mobile mock ===== */
 .mob-wrap{display:grid;grid-template-columns:390px minmax(0,1fr);gap:48px;align-items:start}
 .phone{width:390px;max-width:100%;border:1px solid var(--rf-rule-strong);background:var(--rf-paper);position:relative;border-radius:6px;overflow:hidden}
 .ph-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0}
 .ph-top .wordmark{font-size:18px}
-.avatar{width:36px;height:36px;border-radius:50%;background:var(--rf-paper-sunk);display:grid;place-items:center;font-weight:600;font-size:14px;color:var(--rf-ink-2);box-shadow:inset 0 0 0 1px var(--rf-rule-strong)}
-.ph-h{padding:18px 16px 4px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--rf-paper-sunk);display:grid;place-items:center;font-weight:600;font-size:14px;color:var(--rf-ink-2);box-shadow:inset 0 0 0 1px var(--rf-rule-strong)}
+.ph-h{padding:14px 16px 4px}
 .ph-h h3{margin:2px 0 0;font-size:var(--rf-text-display-l);line-height:var(--rf-leading-display-l)}
+.ph-alert{display:flex;gap:8px;align-items:flex-start;margin:10px 16px 0;padding:10px 0 2px;border-top:1px solid var(--rf-rule-strong);font-size:14px;line-height:20px;color:var(--rf-ink)}
+.ph-alert .ic{color:var(--rf-danger);margin-top:1px}
+.ph-alert a{margin-left:auto;white-space:nowrap;color:var(--rf-ink-2)}
 .ph-sec{padding:0 16px;margin-top:22px}
 .ph-sec .hd{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--rf-ink);padding-top:8px;margin-bottom:2px}
 .ph-sec .hd h4{margin:0;font-size:17px;font-weight:600}
@@ -475,10 +518,13 @@ a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
 .acc .r{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
 .acc .w{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .acc .mono{font-size:16px;font-weight:500}
-.acc .h{font-family:var(--rf-font-money);font-size:12px;color:var(--rf-ink-3)}
+.acc .h{font-size:13px;color:var(--rf-ink-3);align-self:center}
 .tot{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 6px;font-size:15px;color:var(--rf-ink-2)}
 .tot .mono{font-family:var(--rf-font-display);font-variant-numeric:tabular-nums lining-nums;font-size:20px;font-weight:500;color:var(--rf-ink)}
 .tot.dbl{border-bottom:3px double var(--rf-ink)}
+.month{padding:10px 0 2px;font-size:16px;line-height:24px}
+.month .nums{font-variant-numeric:lining-nums proportional-nums}
+.month .meta{margin-top:4px;font-size:12px;line-height:16px}
 .ph-bottom{position:sticky;bottom:0;background:var(--rf-paper-raised);border-top:1px solid var(--rf-rule-strong);margin-top:24px}
 .ph-bottom .mline{border-bottom:1px solid var(--rf-rule);min-height:56px;padding:0 6px 0 14px}
 .ph-bottom .mline input{font-size:16px}
@@ -499,6 +545,13 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
   .page{grid-template-columns:minmax(0,1fr);gap:32px}
   .states,.comp{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mob-wrap{grid-template-columns:minmax(0,1fr)}
+}
+/* Tocco: sotto 768 px ogni bottone è alto 44 (02 §2) */
+@media (max-width: 767px){
+  .btn-sm{height:var(--rf-control-h)}
+  .btn-sq.btn-sm{width:var(--rf-control-h)}
+  .seg button,.seg.lg button{height:var(--rf-control-h)}
+  .kbd{display:none}
 }
 @media (max-width: 760px){
   .top{gap:10px}
@@ -521,24 +574,83 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
   .lg-head{display:none}
   .lg-row{grid-template-columns:72px minmax(0,1fr) auto;min-height:var(--rf-row-h)}
   .lg-row>*{padding:12px 10px}
-  .lg-row>:first-child{padding-left:10px}
+  /* data a due righe: «lun 28» sopra, «set» sotto, dentro i 72 px */
+  .lg-row>:first-child{padding-left:8px;padding-right:4px}
+  .lg-row>.d1{grid-row:span 2}
+  .d1 .mo{display:block;font-size:13px;line-height:18px;color:var(--rf-ink-3)}
   .lg-row .c-dur,.lg-row .c-pay.empty,.lg-row .c-chg.empty{display:none}
   .lg-row .c-saldo{grid-column:2 / -1;padding-top:0;text-align:left}
+  .lg-row .c-saldo:empty{display:none}
   .lg-row .c-saldo .w{margin-right:6px}
   .lg-row .c-chg,.lg-row .c-pay{grid-column:3;grid-row:1}
-  .draft .src{grid-column:1 / -1;padding-left:10px}
+  .draft .src{grid-column:2 / -1;padding-left:10px}
+  .draft .src .btn-ink{flex:1 1 100%}
   .rate .what{grid-column:2 / -1}
   .phone{width:100%;border:0;border-radius:0;margin:0 calc(-1 * var(--rf-gutter));width:calc(100% + 2 * var(--rf-gutter));max-width:none}
 }
+
+/* Utility di progetto copiate da tokens.css (@utility → classe) */
+.tabular{font-family: var(--rf-font-money);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;}
+.pencil-draft{background-image:
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    repeating-linear-gradient(-45deg, transparent 0 7px, var(--rf-pencil-hatch) 7px 8px);
+  background-size:
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-w) var(--rf-dash-step),
+    var(--rf-dash-w) var(--rf-dash-step),
+    auto;
+  background-position: 0 0, 0 100%, 0 0, 100% 0, 0 0;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y, repeat;}
+.pencil-dash{background-image:
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0);
+  background-size:
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-w) var(--rf-dash-step),
+    var(--rf-dash-w) var(--rf-dash-step);
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;}
+.marker{color: var(--rf-ink);
+  background-image: linear-gradient(transparent 52%, var(--rf-highlight) 52%, var(--rf-highlight) 92%, transparent 92%);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;}
+.field-error{border-width: 2px;
+  border-color: var(--rf-danger);
+  padding-inline: calc(var(--rf-space-3) - 1px);}
+.rule-total{border-bottom: var(--rf-rule-total) double var(--rf-ink);}
+.draft::before,.card.pencil::before{background-image:
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    repeating-linear-gradient(-45deg, transparent 0 7px, var(--rf-pencil-hatch) 7px 8px);
+  background-size:
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-w) var(--rf-dash-step),
+    var(--rf-dash-w) var(--rf-dash-step),
+    auto;
+  background-position: 0 0, 0 100%, 0 0, 100% 0, 0 0;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y, repeat;}
+
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-pencil-simple-line" viewBox="0 0 256 256"><path d="M227.32,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H216a8,8,0,0,0,0-16H115.32l112-112A16,16,0,0,0,227.32,73.37ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.69,147.32,64l24-24L216,84.69Z"/></symbol><symbol id="i-pen-nib" viewBox="0 0 256 256"><path d="M248,92.68a15.86,15.86,0,0,0-4.69-11.31L174.63,12.68a16,16,0,0,0-22.63,0L123.57,41.11l-58,21.77A16.06,16.06,0,0,0,55.35,75.23L32.11,214.68A8,8,0,0,0,40,224a8.4,8.4,0,0,0,1.32-.11l139.44-23.24a16,16,0,0,0,12.35-10.17l21.77-58L243.31,104A15.87,15.87,0,0,0,248,92.68Zm-69.87,92.19L63.32,204l47.37-47.37a28,28,0,1,0-11.32-11.32L52,192.7,71.13,77.86,126,57.29,198.7,130ZM112,132a12,12,0,1,1,12,12A12,12,0,0,1,112,132Zm96-15.32L139.31,48l24-24L232,92.68Z"/></symbol><symbol id="i-calendar-dots" viewBox="0 0 256 256"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z"/></symbol><symbol id="i-student" viewBox="0 0 256 256"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29a64,64,0,0,0,20.65,88.05c-18,7.06-33.56,19.83-44.94,37.29a8,8,0,1,0,13.4,8.74C77.77,197.25,101.57,184,128,184s50.23,13.25,65.3,36.37a8,8,0,0,0,13.4-8.74c-11.38-17.46-27-30.23-44.94-37.29a64,64,0,0,0,20.65-88l44.12-14.7a8,8,0,0,0,0-15.18ZM176,120A48,48,0,1,1,89.35,91.55l36.12,12a8,8,0,0,0,5.06,0l36.12-12A47.89,47.89,0,0,1,176,120ZM128,87.57,57.3,64,128,40.43,198.7,64Z"/></symbol><symbol id="i-coins" viewBox="0 0 256 256"><path d="M184,89.57V84c0-25.08-37.83-44-88-44S8,58.92,8,84v40c0,20.89,26.25,37.49,64,42.46V172c0,25.08,37.83,44,88,44s88-18.92,88-44V132C248,111.3,222.58,94.68,184,89.57ZM232,132c0,13.22-30.79,28-72,28-3.73,0-7.43-.13-11.08-.37C170.49,151.77,184,139,184,124V105.74C213.87,110.19,232,122.27,232,132ZM72,150.25V126.46A183.74,183.74,0,0,0,96,128a183.74,183.74,0,0,0,24-1.54v23.79A163,163,0,0,1,96,152,163,163,0,0,1,72,150.25Zm96-40.32V124c0,8.39-12.41,17.4-32,22.87V123.5C148.91,120.37,159.84,115.71,168,109.93ZM96,56c41.21,0,72,14.78,72,28s-30.79,28-72,28S24,97.22,24,84,54.79,56,96,56ZM24,124V109.93c8.16,5.78,19.09,10.44,32,13.57v23.37C36.41,141.4,24,132.39,24,124Zm64,48v-4.17c2.63.1,5.29.17,8,.17,3.88,0,7.67-.13,11.39-.35A121.92,121.92,0,0,0,120,171.41v23.46C100.41,189.4,88,180.39,88,172Zm48,26.25V174.4a179.48,179.48,0,0,0,24,1.6,183.74,183.74,0,0,0,24-1.54v23.79a165.45,165.45,0,0,1-48,0Zm64-3.38V171.5c12.91-3.13,23.84-7.79,32-13.57V172C232,180.39,219.59,189.4,200,194.87Z"/></symbol><symbol id="i-gear-six" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></symbol><symbol id="i-magnifying-glass" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></symbol><symbol id="i-plus" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol><symbol id="i-house" viewBox="0 0 256 256"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></symbol><symbol id="i-check" viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-x" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></symbol><symbol id="i-money" viewBox="0 0 256 256"><path d="M128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152ZM240,56H16a8,8,0,0,0-8,8V192a8,8,0,0,0,8,8H240a8,8,0,0,0,8-8V64A8,8,0,0,0,240,56ZM193.65,184H62.35A56.78,56.78,0,0,0,24,145.65v-35.3A56.78,56.78,0,0,0,62.35,72h131.3A56.78,56.78,0,0,0,232,110.35v35.3A56.78,56.78,0,0,0,193.65,184ZM232,93.37A40.81,40.81,0,0,1,210.63,72H232ZM45.37,72A40.81,40.81,0,0,1,24,93.37V72ZM24,162.63A40.81,40.81,0,0,1,45.37,184H24ZM210.63,184A40.81,40.81,0,0,1,232,162.63V184Z"/></symbol><symbol id="i-bank" viewBox="0 0 256 256"><path d="M24,104H48v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16H208V104h24a8,8,0,0,0,4.19-14.81l-104-64a8,8,0,0,0-8.38,0l-104,64A8,8,0,0,0,24,104Zm40,0H96v64H64Zm80,0v64H112V104Zm48,64H160V104h32ZM128,41.39,203.74,88H52.26ZM248,208a8,8,0,0,1-8,8H16a8,8,0,0,1,0-16H240A8,8,0,0,1,248,208Z"/></symbol><symbol id="i-whatsapp-logo" viewBox="0 0 256 256"><path d="M187.58,144.84l-32-16a8,8,0,0,0-8,.5l-14.69,9.8a40.55,40.55,0,0,1-16-16l9.8-14.69a8,8,0,0,0,.5-8l-16-32A8,8,0,0,0,104,64a40,40,0,0,0-40,40,88.1,88.1,0,0,0,88,88,40,40,0,0,0,40-40A8,8,0,0,0,187.58,144.84ZM152,176a72.08,72.08,0,0,1-72-72A24,24,0,0,1,99.29,80.46l11.48,23L101,118a8,8,0,0,0-.73,7.51,56.47,56.47,0,0,0,30.15,30.15A8,8,0,0,0,138,155l14.61-9.74,23,11.48A24,24,0,0,1,152,176ZM128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></symbol><symbol id="i-copy" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol><symbol id="i-arrows-clockwise" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="i-cloud-check" viewBox="0 0 256 256"><path d="M160,40A88.09,88.09,0,0,0,81.29,88.67,64,64,0,1,0,72,216h88a88,88,0,0,0,0-176Zm0,160H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.29.11A88,88,0,0,0,72,128a8,8,0,0,0,16,0,72,72,0,1,1,72,72Zm37.66-93.66a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L144,148.69l42.34-42.35A8,8,0,0,1,197.66,106.34Z"/></symbol><symbol id="i-cloud-slash" viewBox="0 0 256 256"><path d="M53.92,34.62A8,8,0,1,0,42.08,45.38L81.32,88.55l-.06.12A65,65,0,0,0,72,88a64,64,0,0,0,0,128h88a87.34,87.34,0,0,0,31.8-5.93l10.28,11.31a8,8,0,1,0,11.84-10.76ZM160,200H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.3.12A88.4,88.4,0,0,0,72,128a8,8,0,0,0,16,0,72.25,72.25,0,0,1,5.06-26.54l87,95.7A71.66,71.66,0,0,1,160,200Zm88-72a87.89,87.89,0,0,1-22.35,58.61A8,8,0,0,1,213.71,176,72,72,0,0,0,117.37,70a8,8,0,0,1-9.48-12.89A88,88,0,0,1,248,128Z"/></symbol><symbol id="i-clock" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></symbol><symbol id="i-notebook" viewBox="0 0 256 256"><path d="M184,112a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h64A8,8,0,0,1,184,112Zm-8,24H112a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm48-88V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM48,208H72V48H48Zm160,0V48H88V208H208Z"/></symbol><symbol id="i-arrow-u-up-left" viewBox="0 0 256 256"><path d="M232,144a64.07,64.07,0,0,1-64,64H80a8,8,0,0,1,0-16h88a48,48,0,0,0,0-96H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,45.66L51.31,80H168A64.07,64.07,0,0,1,232,144Z"/></symbol><symbol id="i-warning" viewBox="0 0 256 256"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></symbol><symbol id="i-caret-right" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></symbol><symbol id="i-sun" viewBox="0 0 256 256"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></symbol><symbol id="i-moon" viewBox="0 0 256 256"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z"/></symbol><symbol id="i-hourglass-medium" viewBox="0 0 256 256"><path d="M200,75.64V40a16,16,0,0,0-16-16H72A16,16,0,0,0,56,40V76a16.07,16.07,0,0,0,6.4,12.8L114.67,128,62.4,167.2A16.07,16.07,0,0,0,56,180v36a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V180.36a16.09,16.09,0,0,0-6.35-12.77L141.27,128l52.38-39.6A16.05,16.05,0,0,0,200,75.64ZM72,40H184V75.64L178.23,80H77.33L72,76Zm56,78L98.67,96h58.4Zm56,98H72V180l48-36v24a8,8,0,0,0,16,0V144.08l48,36.28Z"/></symbol><symbol id="i-prohibit" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.4A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.6A88,88,0,0,1,40,128Z"/></symbol><symbol id="i-eraser" viewBox="0 0 256 256"><path d="M225,80.4,183.6,39a24,24,0,0,0-33.94,0L31,157.66a24,24,0,0,0,0,33.94l30.06,30.06A8,8,0,0,0,66.74,224H216a8,8,0,0,0,0-16h-84.7L225,114.34A24,24,0,0,0,225,80.4ZM108.68,208H70.05L42.33,180.28a8,8,0,0,1,0-11.31L96,115.31,148.69,168Zm105-105L160,156.69,107.31,104,161,50.34a8,8,0,0,1,11.32,0l41.38,41.38a8,8,0,0,1,0,11.31Z"/></symbol><symbol id="i-note-pencil" viewBox="0 0 256 256"><path d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></symbol><symbol id="i-chat-text" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V224a15.85,15.85,0,0,0,9.24,14.5A16.13,16.13,0,0,0,40,240a15.89,15.89,0,0,0,10.25-3.78l.09-.07L83,208H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM40,224h0ZM216,192H80a8,8,0,0,0-5.23,1.95L40,224V64H216ZM88,112a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H96A8,8,0,0,1,88,112Zm0,32a8,8,0,0,1,8-8h64a8,8,0,1,1,0,16H96A8,8,0,0,1,88,144Z"/></symbol><symbol id="i-arrow-right" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-pencil-simple-line" viewBox="0 0 256 256"><path d="M227.32,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H216a8,8,0,0,0,0-16H115.32l112-112A16,16,0,0,0,227.32,73.37ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.69,147.32,64l24-24L216,84.69Z"/></symbol><symbol id="i-pen-nib" viewBox="0 0 256 256"><path d="M248,92.68a15.86,15.86,0,0,0-4.69-11.31L174.63,12.68a16,16,0,0,0-22.63,0L123.57,41.11l-58,21.77A16.06,16.06,0,0,0,55.35,75.23L32.11,214.68A8,8,0,0,0,40,224a8.4,8.4,0,0,0,1.32-.11l139.44-23.24a16,16,0,0,0,12.35-10.17l21.77-58L243.31,104A15.87,15.87,0,0,0,248,92.68Zm-69.87,92.19L63.32,204l47.37-47.37a28,28,0,1,0-11.32-11.32L52,192.7,71.13,77.86,126,57.29,198.7,130ZM112,132a12,12,0,1,1,12,12A12,12,0,0,1,112,132Zm96-15.32L139.31,48l24-24L232,92.68Z"/></symbol><symbol id="i-calendar-dots" viewBox="0 0 256 256"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z"/></symbol><symbol id="i-student" viewBox="0 0 256 256"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29a64,64,0,0,0,20.65,88.05c-18,7.06-33.56,19.83-44.94,37.29a8,8,0,1,0,13.4,8.74C77.77,197.25,101.57,184,128,184s50.23,13.25,65.3,36.37a8,8,0,0,0,13.4-8.74c-11.38-17.46-27-30.23-44.94-37.29a64,64,0,0,0,20.65-88l44.12-14.7a8,8,0,0,0,0-15.18ZM176,120A48,48,0,1,1,89.35,91.55l36.12,12a8,8,0,0,0,5.06,0l36.12-12A47.89,47.89,0,0,1,176,120ZM128,87.57,57.3,64,128,40.43,198.7,64Z"/></symbol><symbol id="i-coins" viewBox="0 0 256 256"><path d="M184,89.57V84c0-25.08-37.83-44-88-44S8,58.92,8,84v40c0,20.89,26.25,37.49,64,42.46V172c0,25.08,37.83,44,88,44s88-18.92,88-44V132C248,111.3,222.58,94.68,184,89.57ZM232,132c0,13.22-30.79,28-72,28-3.73,0-7.43-.13-11.08-.37C170.49,151.77,184,139,184,124V105.74C213.87,110.19,232,122.27,232,132ZM72,150.25V126.46A183.74,183.74,0,0,0,96,128a183.74,183.74,0,0,0,24-1.54v23.79A163,163,0,0,1,96,152,163,163,0,0,1,72,150.25Zm96-40.32V124c0,8.39-12.41,17.4-32,22.87V123.5C148.91,120.37,159.84,115.71,168,109.93ZM96,56c41.21,0,72,14.78,72,28s-30.79,28-72,28S24,97.22,24,84,54.79,56,96,56ZM24,124V109.93c8.16,5.78,19.09,10.44,32,13.57v23.37C36.41,141.4,24,132.39,24,124Zm64,48v-4.17c2.63.1,5.29.17,8,.17,3.88,0,7.67-.13,11.39-.35A121.92,121.92,0,0,0,120,171.41v23.46C100.41,189.4,88,180.39,88,172Zm48,26.25V174.4a179.48,179.48,0,0,0,24,1.6,183.74,183.74,0,0,0,24-1.54v23.79a165.45,165.45,0,0,1-48,0Zm64-3.38V171.5c12.91-3.13,23.84-7.79,32-13.57V172C232,180.39,219.59,189.4,200,194.87Z"/></symbol><symbol id="i-gear-six" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></symbol><symbol id="i-plus" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol><symbol id="i-house" viewBox="0 0 256 256"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></symbol><symbol id="i-check" viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-money" viewBox="0 0 256 256"><path d="M128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152ZM240,56H16a8,8,0,0,0-8,8V192a8,8,0,0,0,8,8H240a8,8,0,0,0,8-8V64A8,8,0,0,0,240,56ZM193.65,184H62.35A56.78,56.78,0,0,0,24,145.65v-35.3A56.78,56.78,0,0,0,62.35,72h131.3A56.78,56.78,0,0,0,232,110.35v35.3A56.78,56.78,0,0,0,193.65,184ZM232,93.37A40.81,40.81,0,0,1,210.63,72H232ZM45.37,72A40.81,40.81,0,0,1,24,93.37V72ZM24,162.63A40.81,40.81,0,0,1,45.37,184H24ZM210.63,184A40.81,40.81,0,0,1,232,162.63V184Z"/></symbol><symbol id="i-bank" viewBox="0 0 256 256"><path d="M24,104H48v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16H208V104h24a8,8,0,0,0,4.19-14.81l-104-64a8,8,0,0,0-8.38,0l-104,64A8,8,0,0,0,24,104Zm40,0H96v64H64Zm80,0v64H112V104Zm48,64H160V104h32ZM128,41.39,203.74,88H52.26ZM248,208a8,8,0,0,1-8,8H16a8,8,0,0,1,0-16H240A8,8,0,0,1,248,208Z"/></symbol><symbol id="i-wallet" viewBox="0 0 256 256"><path d="M216,64H56a8,8,0,0,1,0-16H192a8,8,0,0,0,0-16H56A24,24,0,0,0,32,56V184a24,24,0,0,0,24,24H216a16,16,0,0,0,16-16V80A16,16,0,0,0,216,64Zm0,128H56a8,8,0,0,1-8-8V78.63A23.84,23.84,0,0,0,56,80H216Zm-48-60a12,12,0,1,1,12,12A12,12,0,0,1,168,132Z"/></symbol><symbol id="i-whatsapp-logo" viewBox="0 0 256 256"><path d="M187.58,144.84l-32-16a8,8,0,0,0-8,.5l-14.69,9.8a40.55,40.55,0,0,1-16-16l9.8-14.69a8,8,0,0,0,.5-8l-16-32A8,8,0,0,0,104,64a40,40,0,0,0-40,40,88.1,88.1,0,0,0,88,88,40,40,0,0,0,40-40A8,8,0,0,0,187.58,144.84ZM152,176a72.08,72.08,0,0,1-72-72A24,24,0,0,1,99.29,80.46l11.48,23L101,118a8,8,0,0,0-.73,7.51,56.47,56.47,0,0,0,30.15,30.15A8,8,0,0,0,138,155l14.61-9.74,23,11.48A24,24,0,0,1,152,176ZM128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></symbol><symbol id="i-copy" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol><symbol id="i-arrows-clockwise" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="i-cloud-slash" viewBox="0 0 256 256"><path d="M53.92,34.62A8,8,0,1,0,42.08,45.38L81.32,88.55l-.06.12A65,65,0,0,0,72,88a64,64,0,0,0,0,128h88a87.34,87.34,0,0,0,31.8-5.93l10.28,11.31a8,8,0,1,0,11.84-10.76ZM160,200H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.3.12A88.4,88.4,0,0,0,72,128a8,8,0,0,0,16,0,72.25,72.25,0,0,1,5.06-26.54l87,95.7A71.66,71.66,0,0,1,160,200Zm88-72a87.89,87.89,0,0,1-22.35,58.61A8,8,0,0,1,213.71,176,72,72,0,0,0,117.37,70a8,8,0,0,1-9.48-12.89A88,88,0,0,1,248,128Z"/></symbol><symbol id="i-warning" viewBox="0 0 256 256"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></symbol><symbol id="i-caret-right" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></symbol><symbol id="i-caret-down" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></symbol><symbol id="i-sun" viewBox="0 0 256 256"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></symbol><symbol id="i-moon" viewBox="0 0 256 256"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z"/></symbol><symbol id="i-hourglass-medium" viewBox="0 0 256 256"><path d="M200,75.64V40a16,16,0,0,0-16-16H72A16,16,0,0,0,56,40V76a16.07,16.07,0,0,0,6.4,12.8L114.67,128,62.4,167.2A16.07,16.07,0,0,0,56,180v36a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V180.36a16.09,16.09,0,0,0-6.35-12.77L141.27,128l52.38-39.6A16.05,16.05,0,0,0,200,75.64ZM72,40H184V75.64L178.23,80H77.33L72,76Zm56,78L98.67,96h58.4Zm56,98H72V180l48-36v24a8,8,0,0,0,16,0V144.08l48,36.28Z"/></symbol><symbol id="i-prohibit" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.4A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.6A88,88,0,0,1,40,128Z"/></symbol><symbol id="i-pencil-simple-slash" viewBox="0 0 256 256"><path d="M53.92,34.62A8,8,0,1,0,42.08,45.38l48.2,53L36.68,152A15.89,15.89,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31l50.4-50.39,47.69,52.46a8,8,0,1,0,11.84-10.76ZM92.69,208H48V163.31l53.06-53,42.56,46.81ZM227.32,73.37,182.63,28.69a16,16,0,0,0-22.63,0L118.33,70.36a8,8,0,0,0,11.32,11.31L136,75.31,180.69,120l-9,9A8,8,0,0,0,183,140.34L227.32,96A16,16,0,0,0,227.32,73.37ZM192,108.69,147.32,64l24-24L216,84.69Z"/></symbol><symbol id="i-eraser" viewBox="0 0 256 256"><path d="M225,80.4,183.6,39a24,24,0,0,0-33.94,0L31,157.66a24,24,0,0,0,0,33.94l30.06,30.06A8,8,0,0,0,66.74,224H216a8,8,0,0,0,0-16h-84.7L225,114.34A24,24,0,0,0,225,80.4ZM108.68,208H70.05L42.33,180.28a8,8,0,0,1,0-11.31L96,115.31,148.69,168Zm105-105L160,156.69,107.31,104,161,50.34a8,8,0,0,1,11.32,0l41.38,41.38a8,8,0,0,1,0,11.31Z"/></symbol><symbol id="i-chat-text" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V224a15.85,15.85,0,0,0,9.24,14.5A16.13,16.13,0,0,0,40,240a15.89,15.89,0,0,0,10.25-3.78l.09-.07L83,208H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM40,224h0ZM216,192H80a8,8,0,0,0-5.23,1.95L40,224V64H216ZM88,112a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H96A8,8,0,0,1,88,112Zm0,32a8,8,0,0,1,8-8h64a8,8,0,1,1,0,16H96A8,8,0,0,1,88,144Z"/></symbol><symbol id="i-arrow-right" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol><symbol id="i-approximate-equals" viewBox="0 0 256 256"><path d="M222.16,153.26a8,8,0,0,1-1,11.25c-17.36,14.38-32.86,19.49-47,19.49-18.58,0-34.82-8.81-49.93-17-25.35-13.75-47.24-25.63-79.07.74a8,8,0,1,1-10.22-12.3c40.17-33.27,70.32-16.92,96.93-2.48,25.35,13.75,47.24,25.62,79.07-.75A8,8,0,0,1,222.16,153.26Zm-177-49.46c31.83-26.37,53.72-14.5,79.07-.75,15.11,8.2,31.35,17,49.93,17,14.14,0,29.64-5.11,47-19.49a8,8,0,1,0-10.22-12.3c-31.83,26.37-53.72,14.49-79.07.74-26.61-14.43-56.76-30.79-96.93,2.48A8,8,0,0,0,45.11,103.8Z"/></symbol><symbol id="i-command" viewBox="0 0 256 256"><path d="M180,144H160V112h20a36,36,0,1,0-36-36V96H112V76a36,36,0,1,0-36,36H96v32H76a36,36,0,1,0,36,36V160h32v20a36,36,0,1,0,36-36ZM160,76a20,20,0,1,1,20,20H160ZM56,76a20,20,0,0,1,40,0V96H76A20,20,0,0,1,56,76ZM96,180a20,20,0,1,1-20-20H96Zm16-68h32v32H112Zm68,88a20,20,0,0,1-20-20V160h20a20,20,0,0,1,0,40Z"/></symbol></svg>
 <div class="wrap">
 
   <header class="top">
     <div class="wordmark"><span class="logo" aria-hidden="true">R</span><span>Ripeti<i>Flow</i></span></div>
-    <span class="meta meta-c">Sistema visivo «Registro» · v1.0 · mar 6 ott 2026</span>
+    <span class="meta meta-c">Sistema visivo «Registro» · v1.1 · dati d'esempio: mar 6 ott 2026, 14:20</span>
     <span class="spacer"></span>
     <div class="seg" role="group" aria-label="Tema">
       <button type="button" data-t="system" aria-pressed="false">Sistema</button>
@@ -565,18 +677,19 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
 
   <!-- ============ 1. LIBRO MASTRO ============ -->
   <section class="sec" aria-labelledby="s1">
-    <div class="sec-h"><span class="n">§ 1</span><h2 id="s1" class="disp">Scheda studente — il libro mastro</h2><p>Righe più recenti in alto. La prima riga vuota è dove si scrive: a mano o con Matita.</p></div>
+    <div class="sec-h"><span class="n">§ 1</span><h2 id="s1" class="disp">Scheda studente — il libro mastro</h2><p>Righe più recenti in alto: prima le bozze di Matita, poi le lezioni programmate, poi quelle già nel saldo.</p></div>
 
     <div class="page">
       <aside class="aside">
         <div class="cap">Studentessa</div>
         <h3 class="name disp">Giulia Ferri</h3>
-        <div class="sub">3ª liceo scientifico · Matematica, Fisica<br>Mamma: Anna Ferri · <span class="num">347 512 0896</span></div>
+        <div class="sub">3ª liceo scientifico · Liceo Galilei<br>Materia abituale: Matematica<br>Mamma: Anna Ferri · <span class="num">347 512 0896</span></div>
 
         <div class="bal">
           <div class="cap">Saldo al 6 ottobre</div>
-          <div class="amt deb">67,00<small>€</small><span class="amt-w">ti deve</span></div>
-          <p>Ultimo pagamento <span class="num">50,00 €</span> il 2 ott, con bonifico. Da allora 2 lezioni, <span class="num">3 h 30 min</span>.</p>
+          <div class="amt deb" aria-label="ti deve 67 euro">67,00<small>€</small><span class="amt-w">ti deve</span></div>
+          <p>Ultimo pagamento <span class="num">50,00 €</span> il 2 ott, con bonifico. Da allora 1 lezione, <span class="num">2 h</span> (più <span class="num">23,00 €</span> rimasti dopo il bonifico).</p>
+          <p class="prev" aria-live="polite">Previsto con le lezioni programmate: <b class="deb" id="prevAmt">deve <span class="num">89,00 €</span></b></p>
         </div>
         <div class="actions">
           <button class="btn btn-ink" type="button"><svg class="ic ic-18"><use href="#i-coins"/></svg>Pagamento</button>
@@ -604,20 +717,21 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
 
           <label class="mline" role="row">
             <svg class="ic"><use href="#i-pencil-simple-line"/></svg>
-            <input type="text" aria-label="Scrivi a Matita" placeholder="Scrivi una riga… «oggi 15–16:30 matematica, equazioni»">
-            <span class="kbd">⌘K</span>
-            <button class="btn btn-line btn-sq btn-sm" type="button" aria-label="Nuova lezione con il modulo" style="width:36px"><svg class="ic ic-18"><use href="#i-plus"/></svg></button>
+            <input type="text" id="ledgerLine" aria-label="Scrivi a Matita" placeholder="Scrivi una riga… «oggi 16:30–18 matematica, equazioni»">
+            <kbd class="kbd" aria-label="Scorciatoia: Ctrl K"><svg class="ic ic-12"><use href="#i-command"/></svg>K</kbd>
+            <button class="btn btn-line btn-sq btn-sm" type="button" aria-label="Nuova lezione con il modulo"><svg class="ic ic-18"><use href="#i-plus"/></svg></button>
           </label>
 
           <div class="lg-row draft" role="row" id="draftRow">
-            <span class="d1" role="cell"><b>mar 6</b> ott<span class="t1">15:00–16:30</span></span>
-            <span class="what" role="cell"><b>Matematica</b> · <span class="arg">equazioni di secondo grado</span><span class="note"><span class="m-only">15:00–16:30 · </span>Bozza · non ancora nel saldo</span></span>
+            <span class="d1" role="cell"><b>mar 6</b> <span class="mo">ott</span><span class="t1">16:30–18:00</span></span>
+            <span class="what" role="cell"><b>Matematica</b> · <span class="arg">equazioni di secondo grado</span><span class="note"><span class="m-only">16:30–18:00 · </span>Bozza · programmata: non entra subito nel saldo</span></span>
             <span class="r dur c-dur" role="cell">1 h 30</span>
             <span class="r mono c-chg" role="cell">33,00</span>
             <span class="r c-pay empty" role="cell"></span>
-            <span class="r saldo c-saldo" role="cell"><span class="w">sarà</span><span class="mono">100,00 €</span></span>
+            <span class="r saldo c-saldo" role="cell"></span>
             <div class="src" role="cell">
-              <span class="from"><svg class="ic ic-16 icn" style="color:var(--rf-pencil)"><use href="#i-pencil-simple-line"/></svg>Matita ha letto: <q>oggi 15–16:30 mate con Giulia, equazioni di 2° grado</q></span>
+              <span class="warn"><svg class="ic ic-16"><use href="#i-warning"/></svg>Data nel futuro: la lezione sarà programmata.</span>
+              <span class="from"><svg class="ic ic-16 icn" style="color:var(--rf-pencil)"><use href="#i-pencil-simple-line"/></svg>Matita ha letto: <q>oggi 16:30–18 mate, equazioni di 2° grado</q></span>
               <button class="btn btn-ink btn-sm" type="button" id="inkBtn"><svg class="ic ic-16"><use href="#i-pen-nib"/></svg>Ripassa a penna</button>
               <button class="btn btn-quiet btn-sm" type="button">Modifica</button>
               <button class="btn btn-quiet btn-sm" type="button">Scarta</button>
@@ -625,26 +739,26 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
             <span class="ink-line" aria-hidden="true"></span>
           </div>
 
+          <div class="lg-row prog" role="row" id="progRow">
+            <span class="d1" role="cell"><b>gio 8</b> <span class="mo">ott</span><span class="t1">15:00–16:00</span></span>
+            <span class="what" role="cell"><b>Matematica</b><span class="note"><span class="m-only">15:00–16:00 · </span>Programmata · non ancora nel saldo</span></span>
+            <span class="r dur c-dur" role="cell">1 h</span>
+            <span class="r mono c-chg" role="cell">22,00</span>
+            <span class="r c-pay empty" role="cell"></span>
+            <span class="r saldo c-saldo" role="cell"></span>
+          </div>
+
           <div class="lg-row" role="row">
-            <span class="d1" role="cell"><b>lun 5</b> ott<span class="t1">17:00–19:00</span></span>
-            <span class="what" role="cell"><b>Fisica</b> · <span class="arg">moto rettilineo uniforme</span><span class="note"><span class="m-only">17:00–19:00 · </span>Esercizi 4–9 pag. 112 per giovedì</span></span>
+            <span class="d1" role="cell"><b>lun 5</b> <span class="mo">ott</span><span class="t1">17:00–19:00</span></span>
+            <span class="what" role="cell"><b>Fisica</b> · <span class="arg">moto rettilineo uniforme</span><span class="note mo">17:00–19:00</span></span>
             <span class="r dur c-dur" role="cell">2 h</span>
             <span class="r mono c-chg" role="cell">44,00</span>
             <span class="r c-pay empty" role="cell"></span>
             <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">67,00 €</span></span>
           </div>
 
-          <div class="lg-row cancel" role="row">
-            <span class="d1" role="cell"><b>sab 3</b> ott<span class="t1">10:00–11:00</span></span>
-            <span class="what" role="cell"><b>Matematica</b><span class="note"><span class="m-only">10:00–11:00 · </span>Annullata · non addebitata</span></span>
-            <span class="r dur c-dur" role="cell">—</span>
-            <span class="r mono c-chg" role="cell" style="color:var(--rf-ink-3)">—</span>
-            <span class="r c-pay empty" role="cell"></span>
-            <span class="r saldo c-saldo deb" role="cell"><span class="w">deve</span><span class="mono">23,00 €</span></span>
-          </div>
-
           <div class="lg-row" role="row">
-            <span class="d1" role="cell"><b>ven 2</b> ott</span>
+            <span class="d1" role="cell"><b>ven 2</b> <span class="mo">ott</span></span>
             <span class="what" role="cell"><svg class="ic ic-16 icn"><use href="#i-bank"/></svg><b>Pagamento</b> · bonifico</span>
             <span class="r dur c-dur" role="cell"></span>
             <span class="r c-chg empty" role="cell"></span>
@@ -653,7 +767,7 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
           </div>
 
           <div class="lg-row" role="row">
-            <span class="d1" role="cell"><b>gio 1</b> ott<span class="t1">16:00–17:30</span></span>
+            <span class="d1" role="cell"><b>gio 1</b> <span class="mo">ott</span><span class="t1">16:00–17:30</span></span>
             <span class="what" role="cell"><b>Fisica</b> · <span class="arg">vettori e componenti</span><span class="note mo">16:00–17:30</span></span>
             <span class="r dur c-dur" role="cell">1 h 30</span>
             <span class="r mono c-chg" role="cell">33,00</span>
@@ -662,12 +776,12 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
           </div>
 
           <div class="lg-row rate" role="row">
-            <span class="d1" role="cell"><b>gio 1</b> ott</span>
+            <span class="d1" role="cell"><b>gio 1</b> <span class="mo">ott</span></span>
             <span class="what" role="cell"><svg class="ic ic-16 icn"><use href="#i-arrows-clockwise"/></svg>Tariffa da <span class="num">20,00</span> a <span class="num">22,00 €/h</span> per le lezioni da questa data</span>
           </div>
 
           <div class="lg-row" role="row">
-            <span class="d1" role="cell"><b>lun 28</b> set<span class="t1">15:00–17:00</span></span>
+            <span class="d1" role="cell"><b>lun 28</b> <span class="mo">set</span><span class="t1">15:00–17:00</span></span>
             <span class="what" role="cell"><b>Matematica</b> · <span class="arg">disequazioni fratte</span><span class="note mo">15:00–17:00</span></span>
             <span class="r dur c-dur" role="cell">2 h</span>
             <span class="r mono c-chg" role="cell">40,00</span>
@@ -676,22 +790,22 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
           </div>
 
           <div class="lg-row riporto" role="row" style="border-bottom:var(--rf-rule-total) double var(--rf-ink)">
-            <span class="d1" role="cell">27 set</span>
-            <span class="what" role="cell">Riporto dal registro di settembre</span>
+            <span class="d1" role="cell"><b>31</b> <span class="mo">ago</span></span>
+            <span class="what" role="cell">Riporto al 31 agosto</span>
             <span class="r dur c-dur" role="cell"></span>
             <span class="r c-chg empty" role="cell"></span>
             <span class="r c-pay empty" role="cell"></span>
             <span class="r saldo c-saldo" role="cell" style="color:var(--rf-ink-2)"><span class="w">in pari</span><span class="mono">0,00 €</span></span>
           </div>
         </div>
-        <p class="meta" style="margin:10px 0 0">Prova: «Ripassa a penna» trasforma la bozza in riga d'inchiostro (420 ms; istantaneo con movimento ridotto).</p>
+        <p class="meta" style="margin:10px 0 0">Prova «Ripassa a penna»: la bozza è una lezione futura, quindi diventa <b>Programmata</b>. Il saldo resta 67,00 €; cambia solo il previsto (420 ms; istantaneo con movimento ridotto).</p>
       </div>
     </div>
   </section>
 
   <!-- ============ 2. MATITA ============ -->
   <section class="sec" aria-labelledby="s2">
-    <div class="sec-h"><span class="n">§ 2</span><h2 id="s2" class="disp">Matita — scrive a matita, tu ripassi a penna</h2><p>Non è una chat che galleggia: è la prima riga del registro. ⌘K / Ctrl+K la mette a fuoco ovunque.</p></div>
+    <div class="sec-h"><span class="n">§ 2</span><h2 id="s2" class="disp">Matita — scrive a matita, tu ripassi a penna</h2><p>Non è una chat che galleggia: è la prima riga del registro. Ctrl&nbsp;K (Cmd&nbsp;K su Mac) la mette a fuoco ovunque.</p></div>
     <div class="states">
       <div class="st">
         <div class="cap"><span>Sta pensando</span><span>dopo Invio</span></div>
@@ -700,17 +814,17 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
           <input type="text" value="ieri 15–16:30 matematica con Luca, equazioni di secondo grado" aria-label="Esempio" readonly>
           <svg class="scribble" viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden="true"><path d="M0 6 C 20 1, 30 9, 50 5 S 80 2, 100 6 S 140 9, 160 4 S 200 2, 220 6 S 260 9, 280 5 S 320 2, 340 6 S 380 8, 400 5"/></svg>
         </div>
-        <p class="meta" style="margin:8px 0 0"><span class="marker" style="color:var(--rf-ink)">Matita sta scrivendo…</span> · Esc per annullare</p>
+        <p class="meta" style="margin:8px 0 0"><span class="marker">Matita sta scrivendo…</span> · Esc per annullare</p>
       </div>
 
       <div class="st" style="grid-row:span 2">
-        <div class="cap"><span>Proposta · lezione</span><span>bozza</span></div>
+        <div class="cap"><span>Proposta · lezione</span><span>drafts[0]</span></div>
         <div class="card pencil">
           <div class="who"><svg class="ic"><use href="#i-pencil-simple-line"/></svg>Matita propone</div>
-          <div class="said"><span class="marker">ieri</span> <span class="marker">15–16:30</span> <span class="marker">matematica</span> con <span class="marker">Luca</span>, <span class="marker">equazioni di secondo grado</span></div>
+          <div class="read">Matita ha letto: <q>ieri 15–16:30 matematica con Luca, equazioni di secondo grado</q></div>
           <dl class="fields">
             <dt>Studente</dt><dd>Luca Bianchi</dd>
-            <dt>Data</dt><dd>lun 5 ott 2026 <span style="color:var(--rf-ink-3)">(ieri)</span></dd>
+            <dt>Giorno</dt><dd>lun 5 ott 2026 <span style="color:var(--rf-ink-3)">(ieri)</span></dd>
             <dt>Orario</dt><dd><span class="num">15:00–16:30 · 1 h 30 min</span></dd>
             <dt>Materia</dt><dd>Matematica</dd>
             <dt>Argomento</dt><dd>equazioni di secondo grado</dd>
@@ -721,19 +835,21 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
             <button class="btn btn-line btn-sm" type="button">Modifica</button>
             <button class="btn btn-quiet btn-sm" type="button">Scarta</button>
           </div>
+          <p class="meta">Importo e tariffa li calcola il server. Gli avvisi (<span class="num">warnings[]</span>) compaiono sopra le azioni, come nella riga del registro.</p>
         </div>
       </div>
 
       <div class="st" style="grid-row:span 2">
-        <div class="cap"><span>Proposta · messaggio</span><span>bozza</span></div>
+        <div class="cap"><span>Proposta · messaggio</span><span>channel: whatsapp</span></div>
         <div class="card pencil">
           <div class="who"><svg class="ic"><use href="#i-pencil-simple-line"/></svg>Promemoria per la mamma di Marco</div>
           <div class="msg">Buongiorno signora Rossi, le scrivo il riepilogo di settembre per Marco: 6 lezioni, 9 ore, <span class="num">180,00 €</span>. Ho ricevuto <span class="num">60,00 €</span> il 12 settembre, quindi restano <span class="num">120,00 €</span>. Grazie, Daniele</div>
           <div class="row-actions">
             <button class="btn btn-ink btn-sm" type="button"><svg class="ic ic-16"><use href="#i-copy"/></svg>Copia</button>
-            <button class="btn btn-line btn-sm" type="button"><svg class="ic ic-16"><use href="#i-whatsapp-logo"/></svg>WhatsApp</button>
+            <button class="btn btn-line btn-sm" type="button"><svg class="ic ic-16"><use href="#i-whatsapp-logo"/></svg>WhatsApp · <span class="num">339 204 7781</span></button>
             <button class="btn btn-quiet btn-sm" type="button">Modifica</button>
           </div>
+          <p class="meta">Nella scheda di Marco il numero è quello della mamma, con il 39 davanti (wa.me/393392047781). Da Oggi il link è wa.me/?text=… e WhatsApp chiede a chi mandarlo. Niente parte da solo.</p>
         </div>
       </div>
 
@@ -741,20 +857,21 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
         <div class="cap"><span>Risposta</span><span>nota a margine</span></div>
         <div class="card note">
           <div class="who" style="color:var(--rf-ink-3)">Quanto mi deve Giulia?</div>
-          <div class="said">Giulia ti deve <span class="deb" style="font-weight:600">67,00 €</span>: due lezioni dopo il bonifico di 50,00 € del 2 ottobre.</div>
-          <div class="row-actions" style="margin-top:10px"><a href="#s1" class="btn btn-quiet btn-sm" style="padding-left:0">Apri il registro <svg class="ic ic-16"><use href="#i-arrow-right"/></svg></a></div>
+          <div class="said">Giulia ti deve <b class="deb">67,00 €</b>: <span class="num">23,00 €</span> rimasti dopo il bonifico del 2 ottobre e la lezione di lunedì 5 <span class="num">(44,00 €)</span>.</div>
         </div>
       </div>
     </div>
 
     <div class="two" style="margin-top:32px">
       <div>
-        <div class="small-note"><svg class="ic"><use href="#i-prohibit"/></svg><span><b>Fuori ambito.</b> Questo non lo so fare. Posso segnare lezioni e pagamenti, dirti i saldi e scrivere promemoria. Prova: «chi mi deve più di 50 €?»</span></div>
-        <div class="small-note"><svg class="ic"><use href="#i-warning"/></svg><span><b>Non ho capito la riga.</b> Manca lo studente: c'è un Luca Bianchi e un Luca Moretti. <a href="#">Scegli</a> oppure <a href="#">usa il modulo</a>.</span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-prohibit"/></svg><span><b>Fuori ambito</b> (<span class="num">refused: true</span>), testo del server: <q>Posso aiutarti solo con il tuo registro: lezioni, pagamenti, saldi e messaggi per studenti e famiglie. Prova per esempio: «quanto mi deve Giulia?»</q></span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-pencil-simple-line"/></svg><span><b>Non capito</b> (<span class="num">refused: false</span>), è una risposta come le altre: <q>Non sono riuscito a preparare una risposta affidabile. Riprova con una richiesta più semplice, per esempio: «quanto mi deve Giulia?»</q> · <a href="#" class="tap">oppure usa il modulo</a></span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-pencil-simple-slash"/></svg><span><b>Matita non è attiva su questo server.</b> Usa i moduli: tutto funziona come sempre.</span></div>
       </div>
       <div>
-        <div class="small-note"><svg class="ic"><use href="#i-hourglass-medium"/></svg><span><b>Pausa fino alle 16:40.</b> Hai usato le 30 richieste di quest'ora. I moduli funzionano come sempre.</span></div>
-        <div class="small-note"><svg class="ic"><use href="#i-cloud-slash"/></svg><span><b>Errore di rete.</b> La riga non è stata salvata e resta nel campo. <a href="#">Riprova</a>.</span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-hourglass-medium"/></svg><span><b>Quasi al limite.</b> Ancora 8 richieste a Matita oggi.</span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-hourglass-medium"/></svg><span><b>Limite di oggi.</b> Hai raggiunto il limite di 60 richieste a Matita per oggi. Riprova domani. I moduli funzionano come sempre.</span></div>
+        <div class="small-note"><svg class="ic"><use href="#i-cloud-slash"/></svg><span><b>Matita non risponde in questo momento.</b> La riga è ancora nel campo. <a href="#" class="tap">Riprova</a></span></div>
       </div>
     </div>
   </section>
@@ -766,23 +883,31 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
       <div class="phone" aria-label="Mock: schermata Oggi su mobile">
         <div class="ph-top"><div class="wordmark"><span class="logo" aria-hidden="true" style="width:24px;height:24px;font-size:15px">R</span><span>Ripeti<i>Flow</i></span></div><span class="avatar">DM</span></div>
         <div class="ph-h"><div class="meta">martedì 6 ottobre</div><h3 class="disp">Oggi</h3></div>
+        <div class="ph-alert"><svg class="ic ic-18"><use href="#i-cloud-slash"/></svg><span>2 lezioni non sono in Google Calendar.</span><a href="#" class="tap">Impostazioni</a></div>
 
         <div class="ph-sec">
-          <div class="hd"><h4>Prossime lezioni</h4><a href="#">Agenda</a></div>
-          <div class="ag"><div class="tm">15:00<span>16:30</span></div><div><div class="nm">Giulia Ferri</div><div class="sj">Matematica · <span class="marker" style="color:var(--rf-ink)">tra 40 min</span></div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
-          <div class="ag"><div class="tm">17:00<span>18:00</span></div><div><div class="nm">Luca Bianchi</div><div class="sj">Latino</div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
+          <div class="hd"><h4>Prossime lezioni</h4><a href="#" class="tap">Agenda</a></div>
+          <div class="ag"><div class="tm">15:00<span>16:00</span></div><div><div class="nm">Luca Bianchi</div><div class="sj">Latino · <span class="marker">tra 40 min</span></div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
           <div class="dayline">mer 7 ott</div>
+          <div class="ag"><div class="tm">15:00<span>16:00</span></div><div><div class="nm">Elena Greco</div><div class="sj">Inglese</div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
           <div class="ag"><div class="tm">16:00<span>17:30</span></div><div><div class="nm">Marco Rossi</div><div class="sj">Fisica</div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
+          <div class="dayline">gio 8 ott</div>
+          <div class="ag"><div class="tm">15:00<span>16:00</span></div><div><div class="nm">Giulia Ferri</div><div class="sj">Matematica</div></div><svg class="ic go"><use href="#i-caret-right"/></svg></div>
         </div>
 
         <div class="ph-sec">
-          <div class="hd"><h4>Conti aperti</h4><a href="#">Studenti</a></div>
+          <div class="hd"><h4>Conti aperti</h4><a href="#" class="tap">Studenti</a></div>
           <div class="acc"><span class="nm">Marco Rossi</span><span class="r deb"><span class="w">deve</span><span class="mono">120,00 €</span></span></div>
           <div class="acc"><span class="nm">Giulia Ferri</span><span class="r deb"><span class="w">deve</span><span class="mono">67,00 €</span></span></div>
           <div class="acc"><span class="nm">Elena Greco</span><span class="r deb"><span class="w">deve</span><span class="mono">25,00 €</span></span></div>
-          <div class="acc"><span class="nm">Luca Bianchi</span><span class="r cre"><span class="w">credito</span><span class="mono">40,00 €</span><span class="h">≈ 2 h</span></span></div>
+          <div class="acc"><span class="nm">Luca Bianchi</span><span class="r cre"><span class="w">credito</span><span class="mono">40,00 €</span><span class="h approx" aria-label="circa 2 h"><svg class="ic"><use href="#i-approximate-equals"/></svg>2 h</span></span></div>
           <div class="tot dbl"><span>Da incassare</span><span class="mono">212,00 €</span></div>
           <div class="tot"><span>Anticipi ricevuti</span><span class="mono" style="font-size:17px;font-weight:400;color:var(--rf-ink-2)">40,00 €</span></div>
+        </div>
+
+        <div class="ph-sec">
+          <div class="hd"><h4>ottobre 2026</h4></div>
+          <div class="month"><span class="nums">6 lezioni svolte · 7 h 30 min</span><br><span class="nums">Maturato <b>167,00 €</b> · Incassato <b>155,00 €</b></span><div class="meta">Maturato: lezioni svolte nel mese. Incassato: pagamenti ricevuti nel mese.</div></div>
         </div>
 
         <div class="ph-bottom">
@@ -802,11 +927,12 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
 
       <div class="notes">
         <ol>
-          <li><b>Cosa c'è adesso prima di tutto.</b> Il primo blocco è la prossima lezione con il tempo che manca evidenziato; poi i conti aperti, ordinati per importo.</li>
-          <li><b>Mai numeri con il segno da interpretare.</b> «deve 67,00 €» e «credito 40,00 € ≈ 2 h» con la parola, non −67 o +40. Il colore ripete, non sostituisce.</li>
-          <li><b>Il credito si legge anche in ore.</b> Chi paga in anticipo pensa in lezioni: <span class="num">40,00 € ÷ 20,00 €/h ≈ 2 h</span>.</li>
-          <li><b>Totali con la doppia riga</b> come nei registri contabili: è l'unico «grassetto» che serve.</li>
-          <li><b>Righe da 52–60 px</b>, testo 16 px, target ≥ 44 px. Nessuna card con ombra: le righe bastano.</li>
+          <li><b>Cosa c'è adesso prima di tutto.</b> Il primo blocco è la prossima lezione con il tempo che manca evidenziato; poi i conti aperti, ordinati per importo; in fondo il mese in numeri (lezioni svolte, ore, maturato, incassato), senza grafici.</li>
+          <li><b>Mai numeri con il segno da interpretare.</b> «deve 67,00 €» e «credito 40,00 € · circa 2 h» con la parola, non −67 o +40. Il colore ripete, non sostituisce.</li>
+          <li><b>Il credito si legge anche in tempo.</b> Chi paga in anticipo pensa in lezioni: 40,00 € a 20,00 €/h sono circa 2 h. Il numero è <span class="num">credit_minutes</span> dell'API (per difetto al minuto): l'interfaccia non lo ricalcola.</li>
+          <li><b>Una lezione finita entra da sola nel saldo.</b> Non c'è niente da «segnare»: esce dalle prossime lezioni e compare nel registro. Le lezioni future sono «programmate» e contano solo nel previsto.</li>
+          <li><b>Gli avvisi solo quando servono.</b> La riga Calendar compare se qualche lezione non è arrivata su Google; altrimenti non c'è.</li>
+          <li><b>Righe da 52–60 px</b>, testo 16 px, ogni target ≥ 44 px (anche «Agenda», «Studenti», «Impostazioni»). Nessuna card con ombra: le righe bastano.</li>
         </ol>
       </div>
     </div>
@@ -814,7 +940,7 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
 
   <!-- ============ 4. TIPOGRAFIA + COLORE ============ -->
   <section class="sec" aria-labelledby="s4">
-    <div class="sec-h"><span class="n">§ 4</span><h2 id="s4" class="disp">Tipografia e colore</h2><p>Tre voci: il libro (Literata), l'interfaccia (Schibsted Grotesk), la calcolatrice (IBM Plex Mono).</p></div>
+    <div class="sec-h"><span class="n">§ 4</span><h2 id="s4" class="disp">Tipografia e colore</h2><p>Tre voci: il libro (Literata), l'interfaccia (Schibsted Grotesk), la calcolatrice (IBM Plex Mono, zero con il punto).</p></div>
     <div class="two">
       <div>
         <div class="ts"><div class="tok"><b>display-xl</b>64/68 · 40/44</div><div class="s disp" style="font-size:var(--rf-text-display-xl);line-height:var(--rf-leading-display-xl)">Ripetizioni</div></div>
@@ -823,8 +949,8 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
         <div class="ts"><div class="tok"><b>display-s</b>24/30 · 22/28</div><div class="s disp" style="font-size:var(--rf-text-display-s);line-height:var(--rf-leading-display-s)">Prossime lezioni</div></div>
         <div class="ts"><div class="tok"><b>voice</b>17/26 italic</div><div class="s voice">«ieri 15–16:30 matematica con Luca, equazioni di secondo grado»</div></div>
         <div class="ts"><div class="tok"><b>title</b>18/24 · 600</div><div class="s" style="font-size:18px;line-height:24px;font-weight:600">Registra pagamento</div></div>
-        <div class="ts"><div class="tok"><b>body</b>16/24 · 400</div><div class="s">Ogni lezione si svolge nello stesso giorno, da un orario di inizio a uno di fine.</div></div>
-        <div class="ts"><div class="tok"><b>body-s</b>14/20</div><div class="s" style="font-size:14px;line-height:20px;color:var(--rf-ink-2)">Ultimo pagamento il 2 ott · sincronizzata con Google Calendar</div></div>
+        <div class="ts"><div class="tok"><b>body</b>16/24 · 400</div><div class="s">Una lezione finita entra da sola nel saldo; prima è programmata.</div></div>
+        <div class="ts"><div class="tok"><b>body-s</b>14/20</div><div class="s" style="font-size:14px;line-height:20px;color:var(--rf-ink-2)">Ultimo pagamento il 2 ott · nel calendario «RipetiFlow» di Google</div></div>
         <div class="ts"><div class="tok"><b>caption</b>12/16 · MAIUSC.</div><div class="s cap">Data · Voce · Saldo</div></div>
         <div class="ts"><div class="tok"><b>money</b>15/20 · Plex Mono</div><div class="s mono" style="font-size:15px">30,00 &nbsp; 1.111,10 &nbsp; 12.480,00 &nbsp; 67,00 €</div></div>
         <div class="ts"><div class="tok"><b>money-l</b>24/28 · Literata 500</div><div class="s disp" style="font-size:24px;font-weight:500;font-variant-numeric:tabular-nums lining-nums">Da incassare 212,00 €</div></div>
@@ -839,7 +965,7 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
         <div class="sw"><span class="chip" style="background:var(--rf-debito)"></span><span class="n">Debito — ti deve<span>--rf-debito · 6,17 / 7,48</span></span><span class="v"><b>#A3302A</b><br>#F28B7F</span></div>
         <div class="sw"><span class="chip" style="background:var(--rf-credito)"></span><span class="n">Credito<span>--rf-credito · 7,21 / 8,51</span></span><span class="v"><b>#1D4C9E</b><br>#93B3F3</span></div>
         <div class="sw"><span class="chip" style="background:var(--rf-pencil)"></span><span class="n">Grafite — bozza<span>--rf-pencil · 5,61 / 7,58</span></span><span class="v"><b>#5A606A</b><br>#A4A9B1</span></div>
-        <div class="sw"><span class="chip" style="background:var(--rf-highlight)"></span><span class="n">Evidenziatore<span>--rf-highlight · ink sopra 13,00 / 6,54</span></span><span class="v"><b>#F5E27A</b><br>#5B5018</span></div>
+        <div class="sw"><span class="chip" style="background:var(--rf-highlight)"></span><span class="n">Evidenziatore<span>--rf-highlight · solo ink sopra 13,00 / 6,54</span></span><span class="v"><b>#F5E27A</b><br>#5B5018</span></div>
         <div class="sw"><span class="chip" style="background:var(--rf-margin)"></span><span class="n">Margine<span>--rf-margin · decorativo</span></span><span class="v"><b>#C9776F</b><br>#7A4540</span></div>
         <p class="meta" style="margin-top:10px">Rapporti WCAG su Carta: chiaro / scuro. In grassetto il valore chiaro.</p>
       </div>
@@ -848,7 +974,7 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
 
   <!-- ============ 5. COMPONENTI ============ -->
   <section class="sec" aria-labelledby="s5">
-    <div class="sec-h"><span class="n">§ 5</span><h2 id="s5" class="disp">Componenti</h2><p>Angoli a 3 px, altezza 44 px, un solo bottone pieno per schermata.</p></div>
+    <div class="sec-h"><span class="n">§ 5</span><h2 id="s5" class="disp">Componenti</h2><p>Angoli a 3 px, altezza 44 px, un solo bottone pieno per schermata. L'errore di un campo è un bordo di 2 px: il focus non lo copre.</p></div>
     <div class="comp">
       <div>
         <h3>Bottoni</h3>
@@ -861,30 +987,33 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
         <h3 style="margin-top:28px">Saldo</h3>
         <div class="stack">
           <span class="badge b-deb">Ti deve <span class="mono">120,00 €</span></span>
-          <span class="badge b-cre">Credito <span class="mono">40,00 € · 2 h</span></span>
+          <span class="badge b-cre" aria-label="Credito 40 euro, circa 2 ore">Credito <span class="mono">40,00 €</span> · <span class="approx"><svg class="ic"><use href="#i-approximate-equals"/></svg>2 h</span></span>
           <span class="badge b-pari">In pari</span>
-          <span class="badge b-bozza">Bozza</span>
+          <span class="badge b-bozza pencil-dash">Bozza</span>
         </div>
         <h3 style="margin-top:28px">Avviso</h3>
-        <div class="toast" role="status"><svg class="ic ic-18"><use href="#i-check"/></svg><span class="grow">Lezione registrata · in Calendar</span><button type="button">Annulla</button></div>
+        <div class="toast" role="status"><svg class="ic ic-18"><use href="#i-check"/></svg><span class="grow">Lezione registrata · nel saldo</span><button type="button">Annulla</button></div>
       </div>
       <div>
         <h3>Modulo lezione</h3>
-        <div class="field"><label>Studente</label><div class="inp"><svg class="ic ic-18"><use href="#i-student"/></svg><span class="grow">Giulia Ferri</span><svg class="ic ic-16" style="transform:rotate(90deg)"><use href="#i-caret-right"/></svg></div></div>
-        <div class="field"><label>Giorno</label><div class="inp focus"><svg class="ic ic-18"><use href="#i-calendar-dots"/></svg><span class="grow">mar 6 ott 2026</span><span class="meta">oggi</span></div></div>
-        <div class="field"><label>Orario</label><div class="timepair"><div class="inp mono" style="justify-content:center">15:00</div><span class="meta">→</span><div class="inp mono" style="justify-content:center">16:30</div></div><div class="hint"><span class="num">1 h 30 min · 33,00 € a 22,00 €/h</span></div></div>
+        <div class="field"><span class="lab">Studente</span><div class="inp"><svg class="ic ic-18"><use href="#i-student"/></svg><span class="grow">Giulia Ferri</span><svg class="ic ic-16"><use href="#i-caret-down"/></svg></div></div>
+        <div class="field"><span class="lab">Giorno</span><div class="inp focus"><svg class="ic ic-18"><use href="#i-calendar-dots"/></svg><span class="grow">mar 6 ott 2026</span><span class="meta">oggi</span></div></div>
+        <div class="field"><span class="lab">Orario</span><div class="timepair"><div class="inp mono" style="justify-content:center">16:30</div><svg class="ic ic-16" aria-label="fino a"><use href="#i-arrow-right"/></svg><div class="inp mono field-error" style="justify-content:center" aria-invalid="true">16:00</div></div><div class="hint e"><svg class="ic ic-16"><use href="#i-warning"/></svg>L'orario di fine deve essere successivo a quello di inizio.</div></div>
+        <div class="field"><span class="lab">Argomento <i>(facoltativo)</i></span><div class="inp"><span class="grow" style="font-family:var(--rf-font-display);font-style:italic">equazioni di secondo grado</span></div></div>
+        <div class="disclose"><svg class="ic ic-16"><use href="#i-caret-right"/></svg>Tariffa per questa lezione: <span class="mono">22,00 €/h</span></div>
       </div>
       <div>
         <h3>Modulo pagamento</h3>
-        <div class="field"><label>Importo ricevuto</label><div class="inp"><span class="grow mono" style="font-size:18px;font-weight:500">100,00</span><span class="mono" style="color:var(--rf-ink-3)">€</span></div></div>
-        <div class="field"><label>Come</label><div class="seg lg" role="group" aria-label="Metodo"><button type="button" aria-pressed="true"><svg class="ic ic-16"><use href="#i-money"/></svg>Contanti</button><button type="button" aria-pressed="false"><svg class="ic ic-16"><use href="#i-bank"/></svg>Bonifico</button></div></div>
-        <div class="field"><label>Argomento</label><div class="inp err"><span class="grow" style="color:var(--rf-ink-3)">es. limiti notevoli</span></div><div class="hint e"><svg class="ic ic-16"><use href="#i-warning"/></svg>Scrivi l'argomento (max 120 caratteri)</div></div>
+        <div class="field"><span class="lab">Importo ricevuto</span><div class="inp"><span class="grow mono" style="font-size:18px;font-weight:500">100,00</span><span class="mono" style="color:var(--rf-ink-3)">€</span></div></div>
+        <div class="field"><span class="lab">Come</span><div class="seg lg" role="radiogroup" aria-label="Metodo"><button type="button" aria-pressed="false"><svg class="ic ic-16"><use href="#i-money"/></svg>Contanti</button><button type="button" aria-pressed="false"><svg class="ic ic-16"><use href="#i-bank"/></svg>Bonifico</button><button type="button" aria-pressed="true"><svg class="ic ic-16"><use href="#i-wallet"/></svg>Altro</button></div></div>
+        <div class="field"><span class="lab">Nota</span><div class="inp"><span class="grow">Satispay</span></div><div class="hint">Con «Altro» scrivi come ti ha pagato (es. Satispay, PayPal): comparirà nel registro e nel CSV.</div></div>
+        <div class="after"><span>Dopo</span><span class="cre"><b>credito</b> <span class="num">33,00 €</span></span></div>
       </div>
     </div>
   </section>
 
   <footer>
-    <span>RipetiFlow · sistema visivo «Registro» v1.0 · documentazione in docs/design/</span>
+    <span>RipetiFlow · sistema visivo «Registro» v1.1 · documentazione in docs/design/</span>
     <span class="mono">1.234,50 € · mar 6 ott · 15:00–16:30</span>
   </footer>
 </div>
@@ -898,11 +1027,18 @@ footer{margin:72px 0 0;padding:16px 0 40px;border-top:1px solid var(--rf-rule);d
     var t=b.dataset.t; if(t==='system'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',t)}
     try{localStorage.setItem('rf-theme',t)}catch(e){} paint();})});
   paint();
-  var ink=document.getElementById('inkBtn'), row=document.getElementById('draftRow');
+  // su mobile il placeholder del registro è corto (03 §5)
+  var ll=document.getElementById('ledgerLine');
+  if(ll&&window.matchMedia('(max-width: 767px)').matches)ll.placeholder='Scrivi una riga…';
+  // Ripassa a penna: la bozza è una lezione futura → diventa «Programmata» (saldo invariato, cambia il previsto)
+  var ink=document.getElementById('inkBtn'), row=document.getElementById('draftRow'), prog=document.getElementById('progRow'), prev=document.getElementById('prevAmt');
   if(ink&&row){ink.addEventListener('click',function(){row.classList.add('inking');
-    setTimeout(function(){row.classList.remove('draft','inking');var s=row.querySelector('.src');if(s)s.remove();
-      var n=row.querySelector('.note');if(n)n.textContent='Registrata ora · in Google Calendar';
-      var w=row.querySelector('.saldo');if(w){w.classList.add('deb');w.querySelector('.w').textContent='deve'}
+    setTimeout(function(){row.classList.remove('draft','inking');row.classList.add('prog');
+      row.querySelectorAll('.src,.ink-line').forEach(function(x){x.remove()});
+      var n=row.querySelector('.note');if(n)n.innerHTML='<span class="m-only">16:30–18:00 · </span>Programmata · <span class="marker">oggi · tra 2 h 10 min</span>';
+      if(prog&&prog.parentNode)prog.parentNode.insertBefore(row,prog.nextSibling);
+      if(prev){prev.querySelector('.num').textContent='122,00 €';prev.classList.add('flash');
+        setTimeout(function(){prev.classList.remove('flash')},1200);}
     },parseFloat(getComputedStyle(root).getPropertyValue('--rf-dur-ink'))||0)})}
 })();
 </script>
