@@ -223,6 +223,9 @@ async def student_activity(
             cursor = int(before)
         except ValueError as exc:
             raise invalid("Cursore non valido.", "before") from exc
+        # The cursor is an activity_log id (bigint): anything outside the range is not a real cursor.
+        if not -(2**63) <= cursor < 2**63:
+            raise invalid("Cursore non valido.", "before")
     # The log stores the student of the NEW row; a lesson or payment moved to another student must
     # still show in the history of the student it left (D-18: nothing disappears from the record).
     rows = await conn.fetch(

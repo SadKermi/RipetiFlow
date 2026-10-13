@@ -83,8 +83,12 @@ class FakeGoogle:
     - `grant(scope)` issues a refresh token; refreshing it returns an access token with that scope.
     - Access tokens are checked on every call (unknown -> 401 GoogleUnauthorized).
     - Missing calendar/event -> GoogleNotFound, except delete_calendar/delete_event (already gone = ok).
+    - `cancel(calendar, event)` is a deletion made by hand in Google's UI: the event is kept as
+      `status: cancelled`, hidden from listings, and (pessimistic model) an update brings it back only
+      if the body says `status: confirmed`.
     - `fail(method, *errors)` makes the next calls of `method` raise those errors, in order.
-    - `calls` logs every call as (method, *ids); `delay` adds latency to every call.
+    - `calls` logs every call as (method, *ids); `delay` adds latency to every call; `entered[method]`
+      is set on the first call of `method`, and `holds[method]` (an Event) blocks its calls until set.
     """
 
     def __init__(self) -> None:
@@ -95,6 +99,8 @@ class FakeGoogle:
         self.calls: list[tuple[str, ...]] = []
         self.failures: dict[str, list[GoogleError]] = defaultdict(list)
         self.delay = 0.0
+        self.holds: dict[str, asyncio.Event] = {}
+        self.entered: dict[str, asyncio.Event] = defaultdict(asyncio.Event)
         self.email = "anna.tutor@gmail.com"
         self._seq = itertools.count(1)
 
@@ -133,11 +139,27 @@ class FakeGoogle:
         self.events(calendar_id)[event_id] = body
         return event_id
 
+    def cancel(self, calendar_id: str, event_id: str) -> None:
+        """Deleted by hand in Google Calendar: Google keeps the event as cancelled."""
+        self.events(calendar_id)[event_id]["status"] = "cancelled"
+
+    def visible(self, calendar_id: str) -> dict[str | None, list[str]]:
+        """What the tutor sees in Google: lesson id -> event ids, cancelled events excluded."""
+        result: dict[str | None, list[str]] = defaultdict(list)
+        for event_id, event in self.events(calendar_id).items():
+            if event.get("status") != "cancelled":
+                result[_prop(event)].append(event_id)
+        return dict(result)
+
     # -- protocol ----------------------------------------------------------------------------
     async def _enter(self, method: str, *args: str) -> None:
         self.calls.append((method, *args))
+        self.entered[method].set()
         if self.delay:
             await asyncio.sleep(self.delay)
+        hold = self.holds.get(method)
+        if hold is not None:
+            await hold.wait()
         if self.failures[method]:
             raise self.failures[method].pop(0)
 
@@ -203,7 +225,10 @@ class FakeGoogle:
         events = self._calendar(calendar_id)["events"]
         if event_id not in events:
             raise GoogleNotFound("Not Found", 404, "notFound")
-        events[event_id] = copy.deepcopy(body)
+        replacement = copy.deepcopy(body)
+        if events[event_id].get("status") == "cancelled":
+            replacement.setdefault("status", "cancelled")
+        events[event_id] = replacement
 
     async def delete_event(self, access_token: str, calendar_id: str, event_id: str) -> None:
         await self._enter("delete_event", calendar_id, event_id)
@@ -215,12 +240,20 @@ class FakeGoogle:
     async def find_lesson_events(self, access_token: str, calendar_id: str, lesson_id: str) -> list[str]:
         await self._enter("find_lesson_events", calendar_id, lesson_id)
         self._check(access_token)
-        return [eid for eid, ev in self._calendar(calendar_id)["events"].items() if _prop(ev) == lesson_id]
+        return [
+            eid
+            for eid, ev in self._calendar(calendar_id)["events"].items()
+            if _prop(ev) == lesson_id and ev.get("status") != "cancelled"  # showDeleted=false
+        ]
 
     async def list_events(self, access_token: str, calendar_id: str) -> list[tuple[str, str | None]]:
         await self._enter("list_events", calendar_id)
         self._check(access_token)
-        return [(eid, _prop(ev)) for eid, ev in self._calendar(calendar_id)["events"].items()]
+        return [
+            (eid, _prop(ev))
+            for eid, ev in self._calendar(calendar_id)["events"].items()
+            if ev.get("status") != "cancelled"  # showDeleted=false
+        ]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -586,6 +619,35 @@ async def test_concurrent_connect_creates_exactly_one_calendar(
     assert len(google.events(calendar_id)) == 1
 
 
+async def test_a_burst_of_requests_from_one_tutor_does_not_take_the_pool(
+    cal: httpx.AsyncClient, google: FakeGoogle, make_user: MakeUser
+) -> None:
+    # The calendar lock is a transaction kept open across Google calls, so it pins a pool connection
+    # (4 in tests). Six /connect of one tutor must queue in-process, not hold a connection each while
+    # waiting for the advisory lock: another tutor's request still gets through.
+    user = await make_user("Ivo")
+    other = await make_user("Lia")
+    gate = asyncio.Event()
+    google.holds["create_calendar"] = gate  # the first connect holds the lock until released
+    refresh = google.grant()
+    burst = [asyncio.create_task(connect(cal, user, refresh)) for _ in range(6)]
+    try:
+        await asyncio.wait_for(google.entered["create_calendar"].wait(), 10)
+        for _ in range(100):  # every request has passed the token check and reached the lock
+            if google.count("refresh_access_token") == len(burst):
+                break
+            await asyncio.sleep(0.02)
+        await asyncio.sleep(0.2)
+        response = await asyncio.wait_for(cal.get(f"{API}/students", headers=other.headers), 5)
+        assert response.status_code == 200, response.text
+    finally:
+        gate.set()
+        results = await asyncio.gather(*burst)
+    assert [r.status_code for r in results] == [200] * len(burst)
+    assert google.count("create_calendar") == 1
+    assert len({r.json()["calendar_id"] for r in results}) == 1
+
+
 # ---------------------------------------------------------------------------------------------
 # Worker: events
 # ---------------------------------------------------------------------------------------------
@@ -621,6 +683,7 @@ async def test_events_follow_lessons_insert_update_delete(
     assert event_id is not None
     event = google.events(calendar_id)[event_id]
     assert event == {
+        "status": "confirmed",
         "summary": "Matematica · Luca Bianchi",
         "description": f"Equazioni\n\nScheda studente: {PUBLIC_URL}/studenti/{student}",
         "start": {"dateTime": f"{day.isoformat()}T15:00:00", "timeZone": tz},
@@ -853,6 +916,61 @@ async def test_invalid_grant_revokes_link_and_reconnect_catches_up(
         assert await calendar_state(cal, user, lesson_id) == {"status": "synced", "error": None}
 
 
+async def test_a_stale_refresh_failure_does_not_revoke_a_fresh_reconnect(
+    cal: httpx.AsyncClient, google: FakeGoogle, make_user: MakeUser, db: asyncpg.Pool[asyncpg.Record]
+) -> None:
+    user, student = await tutor_with_student(cal, make_user)
+    _, old_refresh = await connected(cal, user, google)
+    google.expire(old_refresh)
+    sync = sync_of(cal)
+    sync._tokens.clear()  # the worker has to refresh the stored (dead) token
+    lesson_id = await lesson(cal, user, student, days(1))
+
+    # The worker's refresh of the old token is still in flight when the tutor reconnects.
+    refresh_in_flight = asyncio.Event()
+    release = asyncio.Event()
+    real_refresh = google.refresh_access_token
+
+    async def slow_refresh(token: str) -> AccessToken:
+        if token == old_refresh:
+            refresh_in_flight.set()
+            await release.wait()
+        return await real_refresh(token)
+
+    google.refresh_access_token = slow_refresh  # type: ignore[method-assign]
+    worker = asyncio.create_task(sync.run_once())
+    await asyncio.wait_for(refresh_in_flight.wait(), 10)
+    reconnected, _ = await connected(cal, user, google)
+    release.set()
+    await worker  # invalid_grant for the OLD token
+
+    row = await link_row(db, user)
+    assert row is not None
+    assert (row["status"], row["last_error"]) == ("active", None)
+    assert all(r["attempts"] == 0 for r in await pending(db, user))  # nothing parked
+    await drain(cal, db, user)
+    assert list(by_lesson(google, reconnected["calendar_id"])) == [lesson_id]
+    assert await calendar_state(cal, user, lesson_id) == {"status": "synced", "error": None}
+
+
+async def test_resync_checks_the_grant_not_the_cached_access_token(
+    cal: httpx.AsyncClient, google: FakeGoogle, make_user: MakeUser, db: asyncpg.Pool[asyncpg.Record]
+) -> None:
+    # The tutor removes the app's access from their Google account: the cached access token dies
+    # with the grant. "Risincronizza" reports the revocation (409), not "Google non risponde" (502).
+    user, student = await tutor_with_student(cal, make_user)
+    _, refresh = await connected(cal, user, google)
+    lesson_id = await lesson(cal, user, student, days(1))
+    await drain(cal, db, user)
+    google.expire(refresh)
+
+    assert_problem(await resync(cal, user), 409, "conflict", MSG_REVOKED)
+    row = await link_row(db, user)
+    assert row is not None
+    assert (row["status"], row["last_error"]) == ("revoked", MSG_REVOKED)
+    assert await calendar_state(cal, user, lesson_id) == {"status": "synced", "error": None}
+
+
 # ---------------------------------------------------------------------------------------------
 # Disconnect / reconnect
 # ---------------------------------------------------------------------------------------------
@@ -926,6 +1044,39 @@ async def test_disconnect_keeps_calendar_and_reconnect_reuses_it(
     for lesson_id in (past_edited, past_kept, future_kept, created_meanwhile):
         assert await event_id_of(db, lesson_id) == events[lesson_id][0]
     assert (await link_row(db, user))["sweep_requested_at"] is None  # type: ignore[index]
+
+
+async def test_reconnect_does_not_push_history_touched_by_bookkeeping(
+    cal: httpx.AsyncClient, google: FakeGoogle, make_user: MakeUser, db: asyncpg.Pool[asyncpg.Record]
+) -> None:
+    # Lessons from before the first connection are never pushed by a connect. Re-pricing them or
+    # editing their notes while sync is off (fields that are not in the event) must not push them on
+    # the reconnect either: only what sync missed is caught up.
+    user, student = await tutor_with_student(cal, make_user)
+    history = [await lesson(cal, user, student, days(-30 - i)) for i in range(3)]
+    status, _ = await connected(cal, user, google)
+    calendar_id = status["calendar_id"]
+    pushed_past = await lesson(cal, user, student, days(-10))  # created while active: pushed
+    await drain(cal, db, user)
+    assert list(by_lesson(google, calendar_id)) == [pushed_past]
+    assert (await disconnect(cal, user)).status_code == 204
+
+    response = await cal.post(
+        f"{API}/students/{student}/rates",
+        json={"hourly_rate_cents": 2500, "effective_from": str(days(-60)), "reprice_existing": True},
+        headers=user.headers,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["repriced_lessons"] == 4
+    await patch_lesson(cal, user, history[0], notes="Ripassare le frazioni")
+    created_meanwhile = await lesson(cal, user, student, days(-5))
+
+    status, _ = await connected(cal, user, google)
+    assert status["calendar_id"] == calendar_id
+    await drain(cal, db, user)
+    assert set(by_lesson(google, calendar_id)) == {pushed_past, created_meanwhile}
+    for lesson_id in history:
+        assert await event_id_of(db, lesson_id) is None
 
 
 async def test_disconnect_with_remove_calendar(
@@ -1074,6 +1225,27 @@ async def test_resync_sweep_adopts_unlinked_and_never_deletes_past_events(
     assert google.count("delete_event") == deletes
     assert len(google.events(calendar_id)) == 3
     assert google.count("insert_event") == 3  # only the original inserts: everything else was adopted
+
+
+async def test_resync_restores_events_deleted_by_hand(
+    cal: httpx.AsyncClient, google: FakeGoogle, make_user: MakeUser, db: asyncpg.Pool[asyncpg.Record]
+) -> None:
+    # Deleted in Google's UI, an event is kept as "cancelled" under the same id: the stored id still
+    # answers, so the update itself has to bring it back ("ricrea mancanti", D-31).
+    user, student = await tutor_with_student(cal, make_user)
+    status, _ = await connected(cal, user, google)
+    calendar_id = status["calendar_id"]
+    lesson_id = await lesson(cal, user, student, days(2))
+    await drain(cal, db, user)
+    event_id = str(await event_id_of(db, lesson_id))
+    google.cancel(calendar_id, event_id)
+    assert google.visible(calendar_id) == {}
+
+    assert (await resync(cal, user, "upcoming")).status_code == 202
+    await drain(cal, db, user)
+    assert google.visible(calendar_id) == {lesson_id: [event_id]}
+    assert google.events(calendar_id)[event_id]["status"] == "confirmed"
+    assert await calendar_state(cal, user, lesson_id) == {"status": "synced", "error": None}
 
 
 async def test_resync_keeps_pending_changes_out_of_scope(

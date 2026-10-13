@@ -13,6 +13,7 @@ fixed-offset zone (Etc/GMT±N) whose local time is currently around noon, so "al
 from __future__ import annotations
 
 import datetime as dt
+import json
 import uuid
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -20,6 +21,7 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
+from app.domain.activity import _Lookup, build_activity
 from tests.conftest import User, create_lesson, create_payment, create_student
 
 API = "/api/v1"
@@ -769,6 +771,36 @@ async def test_full_export_of_a_new_tutor_is_just_the_header(client, make_user) 
     )
 
 
+async def test_csv_numbers_cents_zero_and_large_amounts(client, make_user) -> None:
+    """Sub-euro and negative cents, an exact zero balance, a free lesson, no thousands separator."""
+    tutor = await make_user()
+    student = await new_student(client, tutor, "Ugo", 100)  # 1,00 €/h
+    sid = student["id"]
+    await create_lesson(client, tutor, sid, days(-3), "10:00", "10:03")  # 3 min at 1 €/h = 0,05 €
+    await create_payment(client, tutor, sid, 5, days(-2))
+    await create_lesson(client, tutor, sid, days(-1), "10:00", "10:01", hourly_rate_cents=0)  # free
+    await create_payment(client, tutor, sid, 9_876_543, days(-1), "bank_transfer")
+
+    text = csv_text(await client.get(f"{API}/students/{sid}/ledger.csv", headers=tutor.headers))
+    expected = [
+        CSV_HEADER,
+        f"{date_it(days(-3))};Lezione;Lezione;10:00;10:03;3;1,00;0,05;;-0,05;Svolta",
+        f"{date_it(days(-2))};Pagamento;Pagamento · Contanti;;;;;;0,05;0,00;Ricevuto",
+        # A zero amount leaves "Dare" empty, but a zero rate is still written.
+        f"{date_it(days(-1))};Lezione;Lezione;10:00;10:01;1;0,00;;;0,00;Svolta",
+        f"{date_it(days(-1))};Pagamento;Pagamento · Bonifico;;;;;;98765,43;98765,43;Ricevuto",
+    ]
+    assert text == BOM + "\r\n".join(expected) + "\r\n"
+    assert decimal_it(-5) == "-0,05"  # the oracles themselves
+    assert euro(9_876_543) == "98.765,43 €"
+
+    full = csv_text(await client.get(f"{API}/export/ledger.csv", headers=tutor.headers))
+    assert (
+        full
+        == BOM + "\r\n".join(["Studente;" + CSV_HEADER, *(f"Ugo;{line}" for line in expected[1:])]) + "\r\n"
+    )
+
+
 # ---------------------------------------------------------------------------------------------
 # GET /dashboard
 # ---------------------------------------------------------------------------------------------
@@ -967,6 +999,45 @@ async def test_dashboard_today_and_month_label_follow_the_tutors_timezone(client
         data = await get_dashboard(client, tutor)
         assert data["today"] == str(t), tz
         assert data["month"]["label"] == f"{MONTHS_IT[t.month - 1]} {t.year}", tz
+    assert MONTHS_IT[9] == "ottobre"  # the docs/05 example: "ottobre 2026"
+
+
+async def test_dashboard_upcoming_and_month_follow_each_tutors_timezone(client, make_user) -> None:
+    """Lessons around midnight: "still to come" and "done this month" use the tutor's own clock."""
+    lessons = sorted(midnight_lessons(), key=lambda x: (x[0], x[1]))
+    for tz, column in ((KIRI, 3), (PAGO, 4)):
+        tutor = await make_user("Fuso", timezone=tz)
+        student = await new_student(client, tutor, rate_cents=6000)
+        created = []
+        for lesson in lessons:
+            day, start, end = lesson[0], lesson[1], lesson[2]
+            created.append((lesson, await create_lesson(client, tutor, student["id"], day, start, end)))
+        t = today(tz)
+
+        for n in (1, 2, 31):
+            data = await get_dashboard(client, tutor, days=n)
+            assert data["today"] == str(t)
+            expected = [
+                item["id"]
+                for lesson, item in created
+                if not lesson[column] and lesson[0] <= t + dt.timedelta(days=n)
+            ]
+            assert [item["id"] for item in data["upcoming"]] == expected, (tz, n)
+            assert all(item["settled"] is False for item in data["upcoming"])
+
+        done = [
+            lesson
+            for lesson, _ in created
+            if lesson[column] and (lesson[0].year, lesson[0].month) == (t.year, t.month)
+        ]
+        minutes = [29 if lesson[1] == "23:30" else 30 for lesson in done]
+        assert data["month"] == {
+            "label": f"{MONTHS_IT[t.month - 1]} {t.year}",
+            "lessons": len(done),
+            "minutes": sum(minutes),
+            "earned_cents": sum(amount(6000, m) for m in minutes),
+            "collected_cents": 0,
+        }, tz
 
 
 async def test_dashboard_calendar_block(client, make_user, db) -> None:
@@ -1002,4 +1073,484 @@ async def test_dashboard_calendar_block(client, make_user, db) -> None:
             [uuid.UUID(first["id"]), uuid.UUID(second["id"])],
         )
     assert (await get_dashboard(client, tutor))["calendar"] == {"connected": True, "pending": 1, "errors": 0}
-    assert third["id"]
+    response = await client.get(f"{API}/lessons/{third['id']}", headers=tutor.headers)
+    assert response.json()["calendar"] == {"status": "pending", "error": None}  # the one still waiting
+
+    # A revoked link is "not connected", whatever is left in the queue.
+    async with db.acquire() as conn:
+        await conn.execute(
+            "update app.google_calendar_links set status = 'revoked' where tutor_id = $1", tutor.id
+        )
+    assert (await get_dashboard(client, tutor))["calendar"]["connected"] is False
+
+
+# ---------------------------------------------------------------------------------------------
+# GET /students/{id}/activity
+# ---------------------------------------------------------------------------------------------
+
+ASSISTANT = {"X-RipetiFlow-Source": "assistant"}
+
+
+def brief(item: dict[str, Any]) -> tuple[str, str, str, str]:
+    """(entity, action, source, summary) of an activity item."""
+    return (item["entity"], item["action"], item["source"], item["summary"])
+
+
+def change(field: str, before: str | None, after: str | None) -> dict[str, str | None]:
+    return {"field": field, "before": before, "after": after}
+
+
+def assert_newest_first(items: list[dict[str, Any]]) -> None:
+    ids = [int(item["id"]) for item in items]  # opaque strings, but strictly decreasing
+    assert ids == sorted(ids, reverse=True)
+    assert len(set(ids)) == len(ids)
+    stamps = [dt.datetime.fromisoformat(item["occurred_at"]) for item in items]
+    assert all(stamp.tzinfo is not None for stamp in stamps)  # ISO 8601 with offset
+    assert stamps == sorted(stamps, reverse=True)
+
+
+async def test_activity_of_student_profile_and_rates(client, make_user, db) -> None:
+    tutor = await make_user()
+    math = await subject_id(client, tutor, "Matematica")
+    since, d10, d9 = days(-30), days(-10), days(-9)
+    student = await new_student(client, tutor, "Luca", 2000, since=since, last_name="Rossi")
+    sid = student["id"]
+    first_rate = student["rates"][0]["id"]
+    profile = {
+        "school": "Liceo Galilei",
+        "grade": "3B",
+        "phone": "333 1234567",
+        "notes": "Segue bene",
+        "default_subject_id": math,
+    }
+    await patch(client, tutor, f"/students/{sid}", profile)
+    await patch(
+        client, tutor, f"/students/{sid}", {"first_name": "Lucia", "school": None, "notes": "Progressi"}
+    )
+    await patch(client, tutor, f"/students/{sid}", {"grade": "3B"})  # nothing changes: nothing logged
+    for action in ("archive", "unarchive"):
+        response = await client.post(f"{API}/students/{sid}/{action}", headers=tutor.headers)
+        assert response.status_code == 200, response.text
+    response = await client.post(
+        f"{API}/students/{sid}/rates",
+        json={"hourly_rate_cents": 2550, "effective_from": str(d10), "reprice_existing": False},
+        headers={**tutor.headers, **ASSISTANT},
+    )
+    assert response.status_code == 201, response.text
+    rate_id = response.json()["rate"]["id"]
+    async with db.acquire() as conn:  # no endpoint edits a rate in place: a correction made in the DB
+        await conn.execute(
+            "update app.student_rates set hourly_rate_cents = 2600, effective_from = $2 where id = $1",
+            uuid.UUID(rate_id),
+            d9,
+        )
+    await delete(client, tutor, f"/students/{sid}/rates/{rate_id}")
+
+    data = await get_activity(client, tutor, sid)
+    assert data["next_cursor"] is None
+    items = data["items"]
+    assert_newest_first(items)
+    assert [brief(item) for item in items] == [
+        ("student_rate", "delete", "app", f"Tariffa di 26,00 €/h dal {date_it(d9)} eliminata"),
+        (
+            "student_rate",
+            "update",
+            "app",
+            f"Tariffa modificata: tariffa 25,50 €/h → 26,00 €/h, decorrenza {short_day(d10)} → {short_day(d9)}",
+        ),
+        ("student_rate", "insert", "assistant", f"Nuova tariffa: 25,50 €/h dal {date_it(d10)}"),
+        ("student", "update", "app", "Studente ripristinato"),
+        ("student", "update", "app", "Studente archiviato"),
+        (
+            "student",
+            "update",
+            "app",
+            "Scheda di Lucia Rossi modificata: nome «Luca» → «Lucia», scuola «Liceo Galilei» → —, note modificate",
+        ),
+        (
+            "student",
+            "update",
+            "app",
+            "Scheda di Luca Rossi modificata: scuola — → «Liceo Galilei», classe — → «3B», "
+            "telefono — → 333 1234567, note modificate, materia predefinita — → Matematica",
+        ),
+        ("student_rate", "insert", "app", f"Nuova tariffa: 20,00 €/h dal {date_it(since)}"),
+        ("student", "insert", "app", "Studente aggiunto: Luca Rossi"),
+    ]
+    assert [item["changes"] for item in items] == [
+        [],
+        [
+            change("hourly_rate_cents", "25,50 €/h", "26,00 €/h"),
+            change("effective_from", short_day(d10), short_day(d9)),
+        ],
+        [],
+        [change("archived_at", "sì", None)],
+        [change("archived_at", None, "sì")],
+        [
+            change("first_name", "Luca", "Lucia"),
+            change("school", "Liceo Galilei", None),
+            change("notes", "Segue bene", "Progressi"),  # the summary hides private notes, changes do not
+        ],
+        [
+            change("school", None, "Liceo Galilei"),
+            change("grade", None, "3B"),
+            change("phone", None, "333 1234567"),
+            change("notes", None, "Segue bene"),
+            change("default_subject_id", None, "Matematica"),
+        ],
+        [],
+        [],
+    ]
+    assert [item["entity_id"] for item in items] == [rate_id] * 3 + [sid] * 4 + [first_rate, sid]
+
+
+async def test_activity_of_lessons_and_payments(client, make_user) -> None:
+    tutor = await make_user()
+    math = await subject_id(client, tutor, "Matematica")
+    physics = await subject_id(client, tutor, "Fisica")
+    student = await new_student(client, tutor, "Luca", 2000)
+    sid = student["id"]
+    d3, d2 = days(-3), days(-2)
+    a3, a2 = short_day(d3), short_day(d2)
+
+    response = await client.post(
+        f"{API}/lessons",
+        json={
+            "student_id": sid,
+            "date": str(d3),
+            "start_time": "15:00",
+            "end_time": "16:00",
+            "subject_id": math,
+            "topic": "Frazioni",
+        },
+        headers={**tutor.headers, **ASSISTANT},  # a Matita draft confirmed by the tutor
+    )
+    assert response.status_code == 201, response.text
+    lesson = response.json()
+    url = f"/lessons/{lesson['id']}"
+    edit = {"end_time": "16:30", "topic": "Equazioni", "subject_id": physics, "notes": "Compiti pag. 12"}
+    await patch(client, tutor, url, edit)
+    await patch(client, tutor, url, {"date": str(d2), "hourly_rate_cents": 3000})
+    await patch(client, tutor, url, {"topic": "Equazioni"})  # same value: nothing logged
+    await delete(client, tutor, url, **ASSISTANT)
+
+    payment = await create_payment(client, tutor, sid, 5000, d3)
+    purl = f"/payments/{payment['id']}"
+    await patch(client, tutor, purl, {"amount_cents": 3000, "method": "bank_transfer", "note": "Acconto"})
+    await patch(client, tutor, purl, {"paid_on": str(d2), "note": None}, **ASSISTANT)
+    await delete(client, tutor, purl)
+
+    items = (await get_activity(client, tutor, sid))["items"]
+    assert_newest_first(items)
+    assert [brief(item) for item in items] == [
+        ("payment", "delete", "app", f"Pagamento di 30,00 € del {a2} eliminato"),
+        (
+            "payment",
+            "update",
+            "assistant",
+            f"Pagamento del {a2} modificato: data {a3} → {a2}, nota «Acconto» → —",
+        ),
+        (
+            "payment",
+            "update",
+            "app",
+            f"Pagamento del {a3} modificato: importo 50,00 € → 30,00 €, metodo Contanti → Bonifico, "
+            "nota — → «Acconto»",
+        ),
+        ("payment", "insert", "app", f"Pagamento di 50,00 € del {a3} registrato (Contanti)"),
+        ("lesson", "delete", "assistant", f"Lezione del {a2} eliminata (15:00–16:30, 45,00 €)"),
+        (
+            "lesson",
+            "update",
+            "app",
+            f"Lezione del {a2} modificata: data {a3} → {a2}, tariffa 20,00 €/h → 30,00 €/h, "
+            "importo 30,00 € → 45,00 €",
+        ),
+        (
+            "lesson",
+            "update",
+            "app",
+            f"Lezione del {a3} modificata: materia Matematica → Fisica, fine 16:00 → 16:30, "
+            "importo 20,00 € → 30,00 €, argomento «Frazioni» → «Equazioni», note modificate",
+        ),
+        ("lesson", "insert", "assistant", f"Lezione del {a3} registrata (15:00–16:00, 20,00 €)"),
+        ("student_rate", "insert", "app", f"Nuova tariffa: 20,00 €/h dal {date_it(days(-365))}"),
+        ("student", "insert", "app", "Studente aggiunto: Luca"),
+    ]
+    assert [item["changes"] for item in items[:8]] == [
+        [],
+        [change("paid_on", a3, a2), change("note", "Acconto", None)],
+        [
+            change("amount_cents", "50,00 €", "30,00 €"),
+            change("method", "Contanti", "Bonifico"),
+            change("note", None, "Acconto"),
+        ],
+        [],
+        [],
+        [
+            change("lesson_date", a3, a2),
+            change("hourly_rate_cents", "20,00 €/h", "30,00 €/h"),
+            change("amount_cents", "30,00 €", "45,00 €"),
+        ],
+        [
+            change("subject_id", "Matematica", "Fisica"),
+            change("end_time", "16:00", "16:30"),
+            change("amount_cents", "20,00 €", "30,00 €"),
+            change("topic", "Frazioni", "Equazioni"),
+            change("notes", None, "Compiti pag. 12"),
+        ],
+        [],
+    ]
+    assert [item["entity_id"] for item in items[:8]] == [payment["id"]] * 4 + [lesson["id"]] * 4
+    # Deleted rows leave the ledger, never the history (D-18).
+    assert (await get_ledger(client, tutor, sid))["items"] == []
+
+
+async def test_activity_long_text_is_shortened(client, make_user) -> None:
+    tutor = await make_user()
+    student = await new_student(client, tutor, "Luca")
+    lesson = await create_lesson(client, tutor, student["id"], days(-1), topic="a" * 200)
+    await patch(client, tutor, f"/lessons/{lesson['id']}", {"topic": "b" * 120})
+    latest = (await get_activity(client, tutor, student["id"], limit=1))["items"][0]
+    assert latest["changes"] == [change("topic", "a" * 119 + "…", "b" * 120)]
+    assert latest["summary"].endswith(f"argomento «{'a' * 119}…» → «{'b' * 120}»")
+
+
+async def test_activity_moved_lesson_and_payment_show_in_both_histories(client, make_user) -> None:
+    """D-18: nothing disappears from the record of the student a lesson or payment left."""
+    tutor = await make_user()
+    luca = await new_student(client, tutor, "Luca", 2000, last_name="Rossi")
+    marco = await new_student(client, tutor, "Marco", 3000, last_name="Bianchi")
+    day = short_day(days(-2))
+    lesson = await create_lesson(client, tutor, luca["id"], days(-2))
+    payment = await create_payment(client, tutor, luca["id"], 1000, days(-2))
+    await patch(client, tutor, f"/lessons/{lesson['id']}", {"student_id": marco["id"]})
+    await patch(client, tutor, f"/payments/{payment['id']}", {"student_id": marco["id"]})
+    await patch(client, tutor, f"/lessons/{lesson['id']}", {"topic": "Ripasso"})  # now Marco's only
+
+    moved_payment = (
+        "payment",
+        "update",
+        "app",
+        f"Pagamento del {day} modificato: studente Luca Rossi → Marco Bianchi",
+    )
+    moved_lesson = (
+        "lesson",
+        "update",
+        "app",
+        f"Lezione del {day} modificata: studente Luca Rossi → Marco Bianchi, "
+        "tariffa 20,00 €/h → 30,00 €/h, importo 20,00 € → 30,00 €",
+    )
+    luca_items = (await get_activity(client, tutor, luca["id"]))["items"]
+    marco_items = (await get_activity(client, tutor, marco["id"]))["items"]
+    assert [brief(item) for item in luca_items] == [
+        moved_payment,
+        moved_lesson,
+        ("payment", "insert", "app", f"Pagamento di 10,00 € del {day} registrato (Contanti)"),
+        ("lesson", "insert", "app", f"Lezione del {day} registrata (15:00–16:00, 20,00 €)"),
+        ("student_rate", "insert", "app", f"Nuova tariffa: 20,00 €/h dal {date_it(days(-365))}"),
+        ("student", "insert", "app", "Studente aggiunto: Luca Rossi"),
+    ]
+    assert [brief(item) for item in marco_items] == [
+        ("lesson", "update", "app", f"Lezione del {day} modificata: argomento — → «Ripasso»"),
+        moved_payment,
+        moved_lesson,
+        ("student_rate", "insert", "app", f"Nuova tariffa: 30,00 €/h dal {date_it(days(-365))}"),
+        ("student", "insert", "app", "Studente aggiunto: Marco Bianchi"),
+    ]
+    # The very same log entries, not copies.
+    assert luca_items[:2] == marco_items[1:3]
+    assert luca_items[1]["changes"] == [
+        change("student_id", "Luca Rossi", "Marco Bianchi"),
+        change("hourly_rate_cents", "20,00 €/h", "30,00 €/h"),
+        change("amount_cents", "20,00 €", "30,00 €"),
+    ]
+    # Paging Luca's history uses the same cursor rules across the two kinds of rows.
+    first = await get_activity(client, tutor, luca["id"], limit=1)
+    assert first["items"] == luca_items[:1]
+    second = await get_activity(client, tutor, luca["id"], limit=1, before=first["next_cursor"])
+    assert second["items"] == luca_items[1:2]
+
+
+async def test_activity_cursor_pagination(client, make_user) -> None:
+    tutor = await make_user()
+    student = await new_student(client, tutor)
+    sid = student["id"]
+    for cents in (100, 200, 300, 400, 500):
+        await create_payment(client, tutor, sid, cents, days(-1))
+
+    full = await get_activity(client, tutor, sid, limit=200)
+    assert full["next_cursor"] is None
+    assert len(full["items"]) == 7  # student + first rate + 5 payments
+    assert_newest_first(full["items"])
+    assert [item["summary"] for item in full["items"][:5]] == [
+        f"Pagamento di {euro(c)} del {short_day(days(-1))} registrato (Contanti)"
+        for c in (500, 400, 300, 200, 100)
+    ]
+    assert await get_activity(client, tutor, sid) == full  # default limit: 50
+
+    pages: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        params: dict[str, Any] = {"limit": 3} | ({"before": cursor} if cursor else {})
+        page = await get_activity(client, tutor, sid, **params)
+        pages.append(page)
+        cursor = page["next_cursor"]
+        if cursor is None:
+            break
+        assert cursor == page["items"][-1]["id"]
+    assert [len(page["items"]) for page in pages] == [3, 3, 1]
+    assert [item for page in pages for item in page["items"]] == full["items"]
+
+    # Exactly `limit` items left: no cursor to an empty page.
+    assert await get_activity(client, tutor, sid, limit=7) == full
+    six = await get_activity(client, tutor, sid, limit=6)
+    assert six["items"] == full["items"][:6]
+    assert six["next_cursor"] == full["items"][5]["id"]
+    rest = await get_activity(client, tutor, sid, limit=6, before=six["next_cursor"])
+    assert rest == {"items": full["items"][6:], "next_cursor": None}
+
+    # A write made while paging does not shift the following pages.
+    first = await get_activity(client, tutor, sid, limit=3)
+    await create_payment(client, tutor, sid, 999, days(-1))
+    second = await get_activity(client, tutor, sid, limit=3, before=first["next_cursor"])
+    assert second["items"] == full["items"][3:6]
+    newest = (await get_activity(client, tutor, sid, limit=1))["items"]
+    assert newest[0]["summary"] == f"Pagamento di 9,99 € del {short_day(days(-1))} registrato (Contanti)"
+
+    # A cursor older than everything, or an empty one (= first page).
+    for value in ("1", "0", "-5"):
+        assert await get_activity(client, tutor, sid, before=value) == {"items": [], "next_cursor": None}
+    assert (await get_activity(client, tutor, sid, before=""))["items"][0] == newest[0]
+
+
+@pytest.mark.parametrize(
+    ("params", "field", "message"),
+    [
+        ({"before": "abc"}, "before", "Cursore non valido."),
+        ({"before": "12.5"}, "before", "Cursore non valido."),
+        ({"before": "1" * 21}, "before", "Testo troppo lungo (massimo 20 caratteri)."),
+        ({"limit": "0"}, "limit", "Il valore minimo è 1."),
+        ({"limit": "201"}, "limit", "Il valore massimo è 200."),
+        ({"limit": "dieci"}, "limit", "Deve essere un numero intero."),
+    ],
+)
+async def test_activity_query_validation(client, make_user, params, field, message) -> None:
+    tutor = await make_user()
+    student = await new_student(client, tutor)
+    response = await client.get(
+        f"{API}/students/{student['id']}/activity", params=params, headers=tutor.headers
+    )
+    assert_invalid(response, field, message)
+
+
+async def test_activity_cursor_outside_the_bigint_range(client, make_user) -> None:
+    tutor = await make_user()
+    student = await new_student(client, tutor)
+    url = f"{API}/students/{student['id']}/activity"
+    assert (
+        await client.get(url, params={"before": str(2**63 - 1)}, headers=tutor.headers)
+    ).status_code == 200
+    for value in (str(2**63), "99999999999999999999", str(-(2**63) - 1)):
+        response = await client.get(url, params={"before": value}, headers=tutor.headers)
+        assert_invalid(response, "before", "Cursore non valido.")
+
+
+async def test_activity_of_a_deleted_student_stays_in_the_log(client, make_user, db) -> None:
+    """A student without movements can be deleted: the endpoint 404s, the log keeps every row."""
+    tutor = await make_user()
+    student = await new_student(client, tutor, "Elisa", 2200, since=days(-30), last_name="Neri")
+    sid = student["id"]
+    await delete(client, tutor, f"/students/{sid}")
+    assert_not_found(await client.get(f"{API}/students/{sid}/activity", headers=tutor.headers))
+
+    async with db.acquire() as conn:
+        rows = await conn.fetch(
+            """select id, entity, entity_id, action, before, after, source, occurred_at
+               from app.activity_log where tutor_id = $1 and student_id = $2 order by id desc""",
+            tutor.id,
+            uuid.UUID(sid),
+        )
+    records = [
+        {**dict(r), "before": json.loads(r["before"] or "null"), "after": json.loads(r["after"] or "null")}
+        for r in rows
+    ]
+    rendered = [build_activity(r, _Lookup({}, {}), dt.date.today().year) for r in records]
+    assert [(a.entity, a.action, a.summary) for a in rendered] == [
+        # The rate is removed by the FK cascade, after the student row itself.
+        ("student_rate", "delete", f"Tariffa di 22,00 €/h dal {date_it(days(-30))} eliminata"),
+        ("student", "delete", "Studente eliminato: Elisa Neri"),
+        ("student_rate", "insert", f"Nuova tariffa: 22,00 €/h dal {date_it(days(-30))}"),
+        ("student", "insert", "Studente aggiunto: Elisa Neri"),
+    ]
+
+
+# ---------------------------------------------------------------------------------------------
+# Tenant isolation and authentication
+# ---------------------------------------------------------------------------------------------
+
+
+async def test_another_tutors_student_is_not_found(client, make_user) -> None:
+    owner = await make_user("Proprietario")
+    intruder = await make_user("Intruso")
+    student = await new_student(client, owner, "Luca")
+    sid = student["id"]
+    await create_lesson(client, owner, sid, days(-1))
+    await create_lesson(client, owner, sid, days(1))
+    await create_payment(client, owner, sid, 1000, days(-1))
+    cursor = (await get_activity(client, owner, sid))["items"][0]["id"]
+
+    for path, params in [
+        (f"/students/{sid}/ledger", {}),
+        (f"/students/{sid}/ledger", {"order": "asc", "from": str(days(-5)), "to": str(days(5))}),
+        (f"/students/{sid}/ledger.csv", {}),
+        (f"/students/{sid}/activity", {}),
+        (f"/students/{sid}/activity", {"limit": 1, "before": cursor}),
+    ]:
+        response = await client.get(f"{API}{path}", params=params, headers=intruder.headers)
+        assert_not_found(response)
+
+    # Nothing of the owner's leaks into the intruder's own views.
+    mine = await new_student(client, intruder, "Luca")
+    assert [brief(item)[:2] for item in (await get_activity(client, intruder, mine["id"]))["items"]] == [
+        ("student_rate", "insert"),
+        ("student", "insert"),
+    ]
+    assert (await get_ledger(client, intruder, mine["id"]))["items"] == []
+    dashboard = await get_dashboard(client, intruder, days=31)
+    assert (dashboard["upcoming"], dashboard["owing"], dashboard["in_credit"]) == ([], [], [])
+    assert dashboard["totals"] == {"owed_to_you_cents": 0, "credit_held_cents": 0}
+    assert (dashboard["month"]["lessons"], dashboard["month"]["collected_cents"]) == (0, 0)
+    export = csv_text(await client.get(f"{API}/export/ledger.csv", headers=intruder.headers))
+    assert export == BOM + "Studente;" + CSV_HEADER + "\r\n"
+
+    # The owner still sees all of it.
+    assert len((await get_ledger(client, owner, sid))["items"]) == 3
+    owner_dashboard = await get_dashboard(client, owner, days=31)
+    assert [lesson["student"]["id"] for lesson in owner_dashboard["upcoming"]] == [sid]
+
+
+async def test_unknown_or_malformed_student_ids(client, make_user) -> None:
+    tutor = await make_user()
+    for suffix in ("ledger", "ledger.csv", "activity"):
+        response = await client.get(f"{API}/students/{uuid.uuid4()}/{suffix}", headers=tutor.headers)
+        assert_not_found(response)
+        response = await client.get(f"{API}/students/not-a-uuid/{suffix}", headers=tutor.headers)
+        assert_invalid(response, "student_id", BAD_ID)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"/students/{uuid.UUID(int=1)}/ledger",
+        f"/students/{uuid.UUID(int=1)}/ledger.csv",
+        f"/students/{uuid.UUID(int=1)}/activity",
+        "/export/ledger.csv",
+        "/dashboard",
+    ],
+)
+async def test_reads_require_a_session(client, path) -> None:
+    response = await client.get(f"{API}{path}")
+    assert_problem(response, 401, "unauthorized")
+    response = await client.get(f"{API}{path}", headers={"Authorization": "Bearer not-a-token"})
+    assert_problem(response, 401, "unauthorized")

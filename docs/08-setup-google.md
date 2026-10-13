@@ -66,8 +66,12 @@ PUBLIC_APP_URL=https://<tuo-dominio>
   messaggio che chiede di riprovare lasciandola selezionata.
 - Se il calendario "RipetiFlow" viene eliminato a mano da Google, l'app ne crea uno nuovo da sola e ci
   rimette gli eventi.
-- Token scaduto o revocato (in *Testing* ogni 7 giorni, vedi §4): il collegamento passa a `revoked`; al
-  nuovo "Collega" lo stesso calendario viene riusato e le modifiche fatte nel frattempo vengono inviate.
+- Token scaduto o revocato (in *Testing* ogni 7 giorni, vedi §4, o accesso tolto all'app dall'account
+  Google): il collegamento passa a `revoked` appena l'app prova a usarlo (alla prossima lezione da
+  inviare, o subito con "Risincronizza", che chiede di ricollegare); al nuovo "Collega" lo stesso
+  calendario viene riusato e le modifiche fatte
+  nel frattempo vengono inviate. Lo storico precedente al primo collegamento resta fuori da Google
+  anche se nel frattempo è stato ritoccato (tariffe, note): per inviarlo usa «Risincronizza tutte».
 - "Scollega" revoca il token e lo cancella; il calendario resta su Google e un nuovo "Collega" lo
   riusa (nessun doppione). Con "elimina anche il calendario" il calendario viene cancellato da Google;
   se Google in quel momento non risponde, il collegamento resta attivo e si può riprovare. Se il token

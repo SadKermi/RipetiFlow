@@ -211,6 +211,9 @@ def _pydantic_message(err: dict[str, Any]) -> str:
         expected = str(ctx.get("expected", "")).replace("'", "").replace(" or ", ", ")
         return f"Valore non ammesso (valori possibili: {expected})."
     if kind in ("too_long",):
+        if ctx.get("field_type") != "List":
+            # Required text after the strip validator is reported as a generic too_long.
+            return f"Testo troppo lungo (massimo {ctx.get('max_length')} caratteri)."
         return f"Troppi elementi (massimo {ctx.get('max_length')})."
     if kind in ("too_short",):
         minimum = ctx.get("min_length")
