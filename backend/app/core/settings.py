@@ -32,12 +32,19 @@ class ModelPrice(BaseModel):
     input: Decimal
     output: Decimal
     cached_input: Decimal
+    # Prompt-cache writes; None = billed as plain input (no write premium).
+    cache_write: Decimal | None = None
 
 
 DEFAULT_PRICES: dict[str, ModelPrice] = {
     "gpt-6-luna": ModelPrice(input=Decimal("0.10"), output=Decimal("0.50"), cached_input=Decimal("0.01")),
-    "claude-haiku-4-5": ModelPrice(input=Decimal("1"), output=Decimal("5"), cached_input=Decimal("0.10")),
-    "claude-sonnet-5-5": ModelPrice(input=Decimal("2"), output=Decimal("10"), cached_input=Decimal("0.20")),
+    # Anthropic: 5-minute cache writes cost 1.25x input (the adapter uses the default 5-minute TTL).
+    "claude-haiku-4-5": ModelPrice(
+        input=Decimal("1"), output=Decimal("5"), cached_input=Decimal("0.10"), cache_write=Decimal("1.25")
+    ),
+    "claude-sonnet-5-5": ModelPrice(
+        input=Decimal("2"), output=Decimal("10"), cached_input=Decimal("0.20"), cache_write=Decimal("2.50")
+    ),
 }
 
 
@@ -73,8 +80,10 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
     assistant_daily_limit: int = Field(default=60, ge=1)
-    assistant_timeout_seconds: float = 45.0
-    assistant_max_output_tokens: int = 2000
+    assistant_timeout_seconds: float = 45.0  # each model call
+    assistant_total_timeout_seconds: float = Field(default=60.0, gt=0)  # the whole request (all rounds)
+    # Reasoning/thinking tokens count toward this limit too: it must leave room for the JSON answer.
+    assistant_max_output_tokens: int = Field(default=8000, ge=1000)
     assistant_prices: dict[str, ModelPrice] = Field(default_factory=lambda: dict(DEFAULT_PRICES))
 
     # Demo mode (D-30): never allowed in production.

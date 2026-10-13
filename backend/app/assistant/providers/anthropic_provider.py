@@ -4,10 +4,16 @@ Follows the claude-api skill: manual tool loop (`tool_use` -> `tool_result`), st
 answer constrained with `output_config.format` (json_schema). No forced `tool_choice` (it returns
 400 on the newest models): `auto`, and `none` on the last round. The assistant turns are appended
 verbatim (`response.content`) so thinking blocks stay valid, and the system prompt is cached.
+
+Thinking models (e.g. claude-sonnet-5-5 runs adaptive thinking when `thinking` is omitted) spend
+thinking tokens out of `max_tokens`, so the limit comes from settings with room for both. Any stop
+reason other than `end_turn`/`tool_use` (`max_tokens`, `model_context_window_exceeded`, ...) means
+the answer may be truncated: it is logged and reported as `incomplete_reason`.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import anthropic
@@ -19,16 +25,27 @@ from app.assistant.providers import (
     ToolExecutor,
     ToolSpec,
     Usage,
+    run_tool_calls,
 )
+
+logger = logging.getLogger("ripetiflow.assistant")
 
 
 class AnthropicProvider:
     name = "anthropic"
 
-    def __init__(self, api_key: str, model: str, timeout: float, max_output_tokens: int) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        timeout: float,
+        max_output_tokens: int,
+        *,
+        client: anthropic.AsyncAnthropic | None = None,  # tests pass a client with a mocked transport
+    ) -> None:
         self.model = model
         self._max_tokens = max_output_tokens
-        self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout, max_retries=1)
+        self._client = client or anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout, max_retries=1)
 
     def _output_config(self, schema: dict[str, Any]) -> Any:
         config: dict[str, Any] = {"format": {"type": "json_schema", "schema": schema}}
@@ -46,6 +63,8 @@ class AnthropicProvider:
         output_schema: dict[str, Any],
         execute_tool: ToolExecutor,
         max_tool_rounds: int,
+        max_tool_calls_per_round: int,
+        usage: Usage,
     ) -> ProviderResult:
         history: list[Any] = [{"role": m.role, "content": m.content} for m in messages]
         tool_params: list[Any] = [
@@ -53,7 +72,7 @@ class AnthropicProvider:
             for t in tools
         ]
         system_blocks: list[Any] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
-        result = ProviderResult(text="")
+        result = ProviderResult(text="", usage=usage)
         while True:
             last_round = result.tool_rounds >= max_tool_rounds
             tool_choice: Any = {"type": "none"} if last_round else {"type": "auto"}
@@ -70,31 +89,43 @@ class AnthropicProvider:
             except anthropic.AnthropicError as exc:
                 raise ProviderError(f"anthropic: {type(exc).__name__}") from exc
 
-            usage = response.usage
-            cached = usage.cache_read_input_tokens or 0
-            written = usage.cache_creation_input_tokens or 0
-            result.usage.add(
+            cached = response.usage.cache_read_input_tokens or 0
+            written = response.usage.cache_creation_input_tokens or 0
+            usage.add(
                 Usage(
-                    input_tokens=usage.input_tokens + cached + written,
-                    output_tokens=usage.output_tokens,
+                    input_tokens=response.usage.input_tokens + cached + written,
+                    output_tokens=response.usage.output_tokens,
                     cached_input_tokens=cached,
                     cache_write_tokens=written,
                 )
             )
-            if response.stop_reason == "refusal":
+            stop = response.stop_reason
+            if stop == "refusal":
+                logger.info("anthropic model refused the request")
                 result.refused_by_model = True
                 return result
 
             tool_uses = [block for block in response.content if block.type == "tool_use"]
-            if response.stop_reason != "tool_use" or not tool_uses or last_round:
-                result.text = "".join(block.text for block in response.content if block.type == "text")
-                return result
+            if stop == "tool_use" and tool_uses and not last_round:
+                result.tool_rounds += 1
+                result.tool_calls += len(tool_uses)
+                history.append({"role": "assistant", "content": response.content})
+                outputs = await run_tool_calls(
+                    [(block.name, block.input) for block in tool_uses], execute_tool, max_tool_calls_per_round
+                )
+                history.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": block.id, "content": output}
+                            for block, output in zip(tool_uses, outputs, strict=True)
+                        ],
+                    }
+                )
+                continue
 
-            result.tool_rounds += 1
-            history.append({"role": "assistant", "content": response.content})
-            results: list[Any] = []
-            for block in tool_uses:
-                result.tool_calls += 1
-                output = await execute_tool(block.name, block.input)
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
-            history.append({"role": "user", "content": results})
+            if stop != "end_turn":
+                logger.warning("anthropic final answer stopped with %s, model %s", stop, self.model)
+                result.incomplete_reason = stop or "unknown"
+            result.text = "".join(block.text for block in response.content if block.type == "text")
+            return result

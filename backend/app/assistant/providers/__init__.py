@@ -7,13 +7,22 @@ orchestrator owns every guardrail; providers only translate to their wire format
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import json
+import logging
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from app.core.settings import Settings
 
+logger = logging.getLogger("ripetiflow.assistant")
+
 ToolExecutor = Callable[[str, Any], Awaitable[str]]
+
+TOO_MANY_TOOL_CALLS = json.dumps(
+    {"error": "Troppe richieste agli strumenti in un solo passaggio: questa non è stata eseguita."},
+    ensure_ascii=False,
+)
 
 
 @dataclass(frozen=True)
@@ -31,8 +40,8 @@ class ToolSpec:
 
 @dataclass
 class Usage:
-    input_tokens: int = 0  # all input tokens, cached included
-    output_tokens: int = 0
+    input_tokens: int = 0  # all input tokens: cache reads and cache writes included
+    output_tokens: int = 0  # reasoning/thinking included
     cached_input_tokens: int = 0
     cache_write_tokens: int = 0
 
@@ -50,6 +59,8 @@ class ProviderResult:
     tool_rounds: int = 0
     tool_calls: int = 0
     refused_by_model: bool = False  # the provider's own safety refusal
+    # Why the final answer may be truncated or unusable (e.g. "max_tokens"); logged by the orchestrator.
+    incomplete_reason: str | None = None
 
 
 class ProviderError(Exception):
@@ -69,27 +80,53 @@ class AssistantProvider(Protocol):
         output_schema: dict[str, Any],
         execute_tool: ToolExecutor,
         max_tool_rounds: int,
-    ) -> ProviderResult: ...
+        max_tool_calls_per_round: int,
+        usage: Usage,
+    ) -> ProviderResult:
+        """Run the loop. Token usage is added to `usage` after every model call, so the caller can log
+        what was spent even when a later call fails or the request runs out of time."""
+        ...
+
+
+async def run_tool_calls(
+    calls: Sequence[tuple[str, Any]], execute_tool: ToolExecutor, limit: int
+) -> list[str]:
+    """Execute one round of tool calls in order. Past `limit` the calls are not executed: they get an
+    error result instead, because both APIs require a result for every call the model made."""
+    outputs: list[str] = []
+    for index, (name, arguments) in enumerate(calls):
+        if index >= limit:
+            outputs.append(TOO_MANY_TOOL_CALLS)
+        else:
+            outputs.append(await execute_tool(name, arguments))
+    if len(calls) > limit:
+        logger.warning("assistant tool round capped: %d calls requested, %d executed", len(calls), limit)
+    return outputs
 
 
 def build_provider(settings: Settings) -> AssistantProvider | None:
+    from app.assistant.pricing import price_for
+
     model = settings.resolved_assistant_model
+    provider: AssistantProvider | None = None
     if settings.assistant_provider == "openai" and settings.openai_api_key is not None:
         from app.assistant.providers.openai_provider import OpenAIProvider
 
-        return OpenAIProvider(
+        provider = OpenAIProvider(
             settings.openai_api_key.get_secret_value(),
             model,
             settings.assistant_timeout_seconds,
             settings.assistant_max_output_tokens,
         )
-    if settings.assistant_provider == "anthropic" and settings.anthropic_api_key is not None:
+    elif settings.assistant_provider == "anthropic" and settings.anthropic_api_key is not None:
         from app.assistant.providers.anthropic_provider import AnthropicProvider
 
-        return AnthropicProvider(
+        provider = AnthropicProvider(
             settings.anthropic_api_key.get_secret_value(),
             model,
             settings.assistant_timeout_seconds,
             settings.assistant_max_output_tokens,
         )
-    return None
+    if provider is not None:
+        price_for(settings.assistant_prices, model)  # logs a warning at startup when the price is missing
+    return provider
