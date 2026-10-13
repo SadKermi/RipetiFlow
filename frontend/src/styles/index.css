@@ -1,0 +1,6 @@
+/* Entry stylesheet. Fonts are imported in src/main.tsx (see fonts.md); design tokens live in
+   tokens.css, owned by the Designer role: import it, never edit it from here. */
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Project-level additions that are not design tokens go below. */

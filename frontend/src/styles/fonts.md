@@ -1,7 +1,7 @@
 # Font di RipetiFlow — cosa caricare e come
 
 Tre famiglie, tutte su Google Fonts con licenza **SIL Open Font License 1.1**, self-hosted via Fontsource.
-Versioni verificate con `npm view <pkg> version` il 6 ottobre 2026.
+Versioni verificate con `npm view <pkg> version` il 6 ottobre 2026; glifi verificati il 13 ottobre 2026.
 
 | Ruolo | Famiglia | Pacchetto npm (verificato) | Assi / pesi da caricare | `font-family` CSS |
 |---|---|---|---|---|
@@ -43,10 +43,27 @@ import "@fontsource/ibm-plex-mono/latin-500.css";
   `<link rel="preload" as="font" type="font/woff2" crossorigin href="…/schibsted-grotesk-latin-wght-normal.woff2">` (percorso generato dal bundler; con Vite usare `?url`).
 - Fallback metrici: i token includono `Georgia` / `system-ui` / `ui-monospace`. Facoltativo: generare `size-adjust` con `fontaine` per ridurre il layout shift.
 
+## Glifi che i tre font NON hanno (verificato con fontTools sui file latin)
+
+Literata, Schibsted Grotesk e IBM Plex Mono (subset latin di Fontsource / Google Fonts) non contengono
+`≈` `→` `←` `⌘` `↵` `↻` `✎` `▾` `▸` `✓`. Se finiscono in un testo dell'interfaccia vengono disegnati
+da un font di sistema, con peso e metriche diversi accanto agli importi. Regola:
+
+| Serve | In UI si usa |
+|---|---|
+| freccia (`Inizio → Fine`, «Apri il registro →», `20,00 → 22,00`) | icona Phosphor `ArrowRight` 16 px, oppure le parole («da 20,00 a 22,00 €/h») |
+| scorciatoie (`⌘K`, `⌘↵`) | `<kbd>` con icona `Command` + «K» su Apple, testo «Ctrl K» altrove; Invio si scrive «Invio» |
+| circa (`≈ 1 h 49 min`) | forma compatta: icona `ApproximateEquals` 14 px + durata, con `aria-label="circa 1 h 49 min"`; nelle frasi la parola **circa** |
+| menu a tendina, espandi, fatto | icone `CaretDown`, `CaretRight`, `Check` |
+
+Presenti e usabili come testo: `–` (U+2013) `—` `«` `»` `€` `ª` `º` `…` `·` `×` `÷` `°` `’`.
+Le frecce dentro testi che arrivano dal server (es. `summary` dello storico: «fine 16:30 → 17:00»)
+si mostrano sostituendo ` → ` con l'icona `ArrowRight` al momento del rendering.
+
 ## Perché questi tre (sintesi — dettagli in `docs/design/02-design-system.md` §3)
 
 - **Literata**: serif da lettura nata per gli e-book (Google Play Libri) → è letteralmente un carattere da *libro*; asse ottico 7–72 quindi regge sia 64 px (titoli, saldo) sia 16 px in corsivo (voce di Matita). Occhio medio alto (x-height 0,507 em) → più robusto di Newsreader (0,426) a corpo piccolo.
-- **Schibsted Grotesk**: grottesco editoriale nato per un gruppo editoriale di quotidiani; x-height 0,527 em (alta → leggibile sul telefono a fine lezione), cifre tabellari disponibili, carattere riconoscibile senza essere decorativo. Non è Inter, Roboto, Poppins né Montserrat.
-- **IBM Plex Mono**: monospaziato con genealogia da macchina per scrivere (IBM Selectric) → richiama il nastro della calcolatrice da ufficio; zero **senza barra** (le cifre ",00" restano pulite), virgola e punto larghi come le cifre → allineamento decimale perfetto in colonna.
+- **Schibsted Grotesk**: grottesco editoriale nato per un gruppo editoriale di quotidiani; x-height 0,527 em (alta → leggibile sul telefono a fine lezione), cifre tabellari disponibili, carattere riconoscibile senza essere decorativo. Non è Inter, Roboto, Poppins né Montserrat. Zero senza segni.
+- **IBM Plex Mono**: monospaziato con genealogia da macchina per scrivere (IBM Selectric) → richiama il nastro della calcolatrice da ufficio; virgola e punto larghi come le cifre → allineamento decimale perfetto in colonna. Lo **zero ha un punto centrale** (il glifo ha 3 contorni; il subset non ha alternative senza punto): in ogni «,00» si vedono due puntini, più discreti della barra e utili a non confondere 0 e O nei campi importo.
 
-Scartati (provati a schermo): Atkinson Hyperlegible Next/Mono (zero barrato in ogni ",00"), Red Hat Mono (zero barrato), Bodoni Moda (filetti troppo sottili sotto 40 px su schermi a bassa densità), Newsreader (x-height bassa per il corsivo a 16 px), Inter / Geist / Space Grotesk / Instrument Serif / Fraunces (troppo associati a interfacce generate).
+Scartati (provati a schermo): Atkinson Hyperlegible Next/Mono e Red Hat Mono (zero **barrato**: la barra pesa più del punto di Plex in ogni «,00»), Bodoni Moda (filetti troppo sottili sotto 40 px su schermi a bassa densità), Newsreader (x-height bassa per il corsivo a 16 px), Inter / Geist / Space Grotesk / Instrument Serif / Fraunces (troppo associati a interfacce generate).

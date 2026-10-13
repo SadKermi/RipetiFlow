@@ -1,5 +1,5 @@
 /* =====================================================================
-   RipetiFlow — Design tokens «Registro» v1.0
+   RipetiFlow — Design tokens «Registro» v1.1
    Concetto: inchiostro e matita su carta rigata.
    Documentazione: docs/design/02-design-system.md
 
@@ -7,6 +7,9 @@
      @import "tailwindcss";
      @import "./tokens.css";
    I token runtime (--rf-*) funzionano anche senza Tailwind.
+   Le regole sugli elementi (html, body, :focus-visible, ::selection) stanno in @layer base:
+   qualunque utility (bg-*, focus-visible:outline-none, shadow-*) le batte senza !important.
+   @theme, @custom-variant e @utility restano al primo livello (Tailwind li vuole lì).
 
    Tema: chiaro di default su :root.
      - Scuro automatico con prefers-color-scheme se <html> NON ha data-theme="light".
@@ -99,7 +102,7 @@
   --rf-control-h-sm: 2.25rem;   /* 36px: solo desktop, mai su mobile */
   --rf-row-h: 3.5rem;           /* 56px: riga registro mobile */
   --rf-row-h-dense: 3rem;       /* 48px: riga registro desktop */
-  --rf-gutter: 1rem;            /* 16px mobile */
+  --rf-gutter: 1rem;            /* 16px mobile · 24px tablet · 40px desktop */
   --rf-content-max: 75rem;      /* 1200px */
   --rf-ledger-max: 55rem;       /* 880px */
   --rf-aside-w: 21rem;          /* 336px colonna frontespizio studente */
@@ -115,7 +118,10 @@
   --rf-hairline: 1px;
   --rf-rule-section: 2px;       /* filetto inchiostro sopra le sezioni */
   --rf-rule-total: 3px;         /* doppia riga sotto i totali (border-style: double) */
-  --rf-dash: 6px;               /* passo tratteggio bozze (via background, non border) */
+  --rf-dash: 6px;               /* tratteggio bozze: trattino… */
+  --rf-dash-gap: 5px;           /* …vuoto… */
+  --rf-dash-w: 1.5px;           /* …spessore (disegnato con gradienti, non border-style: dashed) */
+  --rf-dash-step: calc(var(--rf-dash) + var(--rf-dash-gap));
 
   /* Movimento */
   --rf-dur-1: 120ms;            /* hover, pressione, colore */
@@ -134,7 +140,14 @@
   --rf-z-toast: 50;
 }
 
-/* Scala desktop */
+/* Tablet: gutter 24px */
+@media (min-width: 48rem) {
+  :root {
+    --rf-gutter: 1.5rem;
+  }
+}
+
+/* Scala desktop (dichiarata dopo il tablet: a ≥ 1024px vince questa) */
 @media (min-width: 64rem) {
   :root {
     --rf-text-display-xl: 4rem;      --rf-leading-display-xl: 4.25rem;
@@ -217,29 +230,33 @@
 }
 
 /* ---------------------------------------------------------------------
-   4. Base minima (opzionale ma consigliata)
+   4. Base minima, nel layer «base»: le utility di Tailwind la sovrascrivono sempre
    --------------------------------------------------------------------- */
-html {
-  background: var(--rf-paper);
-  color: var(--rf-ink);
-  font-family: var(--rf-font-ui);
-  font-size: 100%;
-  -webkit-text-size-adjust: 100%;
-  text-rendering: optimizeLegibility;
-}
-body {
-  background: var(--rf-paper);
-  font-size: var(--rf-text-body);
-  line-height: var(--rf-leading-body);
-}
-:focus-visible {
-  outline: 2px solid var(--rf-focus-ring);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 5px var(--rf-focus-halo);
-}
-::selection {
-  background: var(--rf-highlight);
-  color: var(--rf-ink);
+@layer base {
+  html {
+    background: var(--rf-paper);
+    color: var(--rf-ink);
+    font-family: var(--rf-font-ui);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--rf-paper);
+    font-size: var(--rf-text-body);
+    line-height: var(--rf-leading-body);
+  }
+  /* Focus: contorno inchiostro + alone evidenziatore, entrambi FUORI dal bordo.
+     L'errore di un campo è un bordo 2px (utility field-error), quindi resta visibile col focus. */
+  :focus-visible {
+    outline: 2px solid var(--rf-focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--rf-focus-halo);
+  }
+  ::selection {
+    background: var(--rf-highlight);
+    color: var(--rf-ink);
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -271,6 +288,8 @@ body {
   --color-pencil-line: var(--rf-pencil-line);
   --color-highlight: var(--rf-highlight);
   --color-danger: var(--rf-danger);
+  --color-pari: var(--rf-pari);
+  --color-scrim: var(--rf-scrim);
 
   --font-*: initial;
   --font-display: var(--rf-font-display);
@@ -282,8 +301,10 @@ body {
 
   --text-display-xl: var(--rf-text-display-xl);
   --text-display-xl--line-height: var(--rf-leading-display-xl);
+  --text-display-xl--letter-spacing: var(--rf-tracking-display);
   --text-display-l: var(--rf-text-display-l);
   --text-display-l--line-height: var(--rf-leading-display-l);
+  --text-display-l--letter-spacing: var(--rf-tracking-display);
   --text-display-m: var(--rf-text-display-m);
   --text-display-m--line-height: var(--rf-leading-display-m);
   --text-display-s: var(--rf-text-display-s);
@@ -296,6 +317,8 @@ body {
   --text-body-s--line-height: var(--rf-leading-body-s);
   --text-caption: var(--rf-text-caption);
   --text-caption--line-height: var(--rf-leading-caption);
+  --text-caption--letter-spacing: var(--rf-tracking-caption);
+  --text-caption--font-weight: 600;
   --text-money-l: var(--rf-text-money-l);
   --text-money-l--line-height: var(--rf-leading-money-l);
   --text-money: var(--rf-text-money);
@@ -315,7 +338,14 @@ body {
   --shadow-popover: var(--rf-shadow-popover);
   --shadow-sheet: var(--rf-shadow-sheet);
 
+  --tracking-display: var(--rf-tracking-display);   /* tracking-display */
+  --tracking-caption: var(--rf-tracking-caption);   /* tracking-caption */
+
   --spacing-touch: var(--rf-touch);
+  --spacing-control: var(--rf-control-h);
+  --spacing-control-sm: var(--rf-control-h-sm);     /* solo desktop */
+  --spacing-gutter: var(--rf-gutter);                /* px-gutter: 16 / 24 / 40 */
+  --spacing-tabbar: var(--rf-tabbar-h);
   --spacing-row: var(--rf-row-h);
   --spacing-row-dense: var(--rf-row-h-dense);
   --spacing-aside: var(--rf-aside-w);
@@ -325,6 +355,9 @@ body {
   --ease-out: var(--rf-ease-out);
   --ease-in: var(--rf-ease-in);
   --ease-ink: var(--rf-ease-ink);
+  /* `transition` senza durata segue i token (e quindi prefers-reduced-motion) */
+  --default-transition-duration: var(--rf-dur-1);
+  --default-transition-timing-function: var(--rf-ease-out);
 }
 
 /* Variante `dark:` coerente con data-theme + preferenza di sistema.
@@ -346,25 +379,58 @@ body {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
 }
-@utility pencil-hatch {
-  background-image: repeating-linear-gradient(-45deg, transparent 0 7px, var(--rf-pencil-hatch) 7px 8px);
+@utility pencil-draft {
+  /* Bozza di Matita (riga del registro, card): tratteggio grafite sul bordo + campitura a 45°
+     in UN SOLO background a 5 livelli (i 4 lati sopra, la campitura sotto). Trattino 6px, vuoto
+     5px, spessore 1,5px (--rf-dash*). Il testo si colora a parte: text-pencil.
+     Per staccare il tratteggio dai filetti vicini, metterla su uno pseudo-elemento:
+     before:absolute before:inset-0.5 before:pencil-draft (il contenuto resta sopra). */
+  background-image:
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    repeating-linear-gradient(-45deg, transparent 0 7px, var(--rf-pencil-hatch) 7px 8px);
+  background-size:
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-w) var(--rf-dash-step),
+    var(--rf-dash-w) var(--rf-dash-step),
+    auto;
+  background-position: 0 0, 0 100%, 0 0, 100% 0, 0 0;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y, repeat;
 }
 @utility pencil-dash {
-  /* tratteggio grafite disegnato con gradienti: controllabile e animabile */
+  /* Solo tratteggio, senza campitura (badge «Bozza»). Stessi valori di pencil-draft.
+     Non combinarla con pencil-draft: entrambe scrivono background-image. */
   background-image:
-    linear-gradient(90deg, var(--rf-pencil-line) 50%, transparent 0),
-    linear-gradient(90deg, var(--rf-pencil-line) 50%, transparent 0),
-    linear-gradient(0deg, var(--rf-pencil-line) 50%, transparent 0),
-    linear-gradient(0deg, var(--rf-pencil-line) 50%, transparent 0);
-  background-size: 12px 1.5px, 12px 1.5px, 1.5px 12px, 1.5px 12px;
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(90deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0),
+    linear-gradient(0deg, var(--rf-pencil-line) var(--rf-dash), transparent 0);
+  background-size:
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-step) var(--rf-dash-w),
+    var(--rf-dash-w) var(--rf-dash-step),
+    var(--rf-dash-w) var(--rf-dash-step);
   background-position: 0 0, 0 100%, 0 0, 100% 0;
   background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
 }
 @utility marker {
-  /* evidenziatore sulla metà bassa della riga di testo */
+  /* Evidenziatore sulla metà bassa della riga. Sopra si scrive SOLO in inchiostro:
+     il colore è forzato (in scuro ink-2 scenderebbe a 4,30:1, ink-3 a 2,84:1). */
+  color: var(--rf-ink);
   background-image: linear-gradient(transparent 52%, var(--rf-highlight) 52%, var(--rf-highlight) 92%, transparent 92%);
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+}
+@utility field-error {
+  /* Campo in errore: BORDO 2px (non box-shadow inset), così l'alone del focus non lo copre.
+     Il padding orizzontale perde 1px per non far saltare il testo (campo standard: 0 12px).
+     Uso: aria-invalid:field-error + messaggio con icona Warning collegato da aria-describedby. */
+  border-width: 2px;
+  border-color: var(--rf-danger);
+  padding-inline: calc(var(--rf-space-3) - 1px);
 }
 @utility rule-total {
   border-bottom: var(--rf-rule-total) double var(--rf-ink);
