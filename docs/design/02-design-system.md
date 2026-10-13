@@ -1,8 +1,9 @@
-# RipetiFlow — Design system «Registro» v1.0
+# RipetiFlow — Design system «Registro» v1.1
 
-*6 ottobre 2026 · Implementazione: `frontend/src/styles/tokens.css` (+ `fonts.md`) · Prova visiva: [specimen.html](specimen.html) / `specimen.jpg`*
+*v1.0 6 ottobre 2026 · v1.1 13 ottobre 2026 (allineato al contratto API `docs/05-api.md`) · Implementazione: `frontend/src/styles/tokens.css` (+ `fonts.md`) · Prova visiva: [specimen.html](specimen.html) / `specimen.jpg`*
 
 Questo documento è per chi sviluppa. Ogni valore qui ha un token in `tokens.css`; se manca un token, il valore non va inventato: va chiesto.
+**Regola d'oro**: si disegna solo ciò che l'API sa fare. Una lezione non ha uno «stato»: è **nel saldo** quando è finita (`settled: true`), altrimenti è **programmata**; per toglierla la si **elimina** (lo storico modifiche ne conserva traccia).
 
 ---
 
@@ -39,7 +40,7 @@ In Tailwind la scala standard `p-1…p-20` coincide già (`--spacing: 0.25rem`).
 | | Mobile (≤ 767 px, progettato a **390**) | Tablet (768–1023) | Desktop (≥ 1024, progettato a **1440**) |
 |---|---|---|---|
 | Colonne | 4 | 8 | 12 |
-| Gutter laterale | 16 px | 24 px | 40 px (`--rf-gutter`) |
+| Gutter laterale (`--rf-gutter`, utility `px-gutter`) | 16 px | 24 px | 40 px |
 | Larghezza contenuto | 100 % | 100 % | max 1200 px (`--rf-content-max`), centrato |
 | Navigazione | tab bar in basso 64 px + safe-area | tab bar | barra superiore 64 px |
 | Scheda studente | una colonna | una colonna | frontespizio 336 px (`--rf-aside-w`) + registro fluido (max 880 px) con 48 px di gap |
@@ -50,7 +51,7 @@ In Tailwind la scala standard `p-1…p-20` coincide già (`--spacing: 0.25rem`).
 |---|---|---|
 | `--rf-touch` | 44 px | ogni elemento cliccabile ha un'area ≥ 44×44 px (anche icone: padding attorno) |
 | `--rf-control-h` | 44 px | input, select, bottoni standard |
-| `--rf-control-h-sm` | 36 px | **solo desktop** (azioni dentro le righe del registro). Mai su mobile |
+| `--rf-control-h-sm` | 36 px | **solo desktop** (azioni dentro le righe del registro). Sotto 768 px ogni bottone, anche in riga o in una card di Matita, è alto 44; i link in linea («Riprova», «Agenda ›») hanno un'area di tocco di 44 px (padding o `::after`) |
 | `--rf-row-h` | 56 px | altezza minima riga registro/lista su mobile |
 | `--rf-row-h-dense` | 48 px | altezza minima riga registro su desktop |
 | `--rf-tabbar-h` | 64 px | + `env(safe-area-inset-bottom)` |
@@ -65,9 +66,11 @@ In Tailwind la scala standard `p-1…p-20` coincide già (`--spacing: 0.25rem`).
 |---|---|---|---|
 | **Display e voce** — titoli di pagina, nome studente, saldo grande, totali, testo scritto a/da Matita, argomento della lezione | **Literata** (variabile, `opsz` 7–72, `wght` 200–900, con corsivo) | `--rf-font-display` | Serif nata per i libri digitali: è il «libro» del libro mastro. L'asse ottico la rende robusta a 16 px in corsivo e raffinata a 64 px. x-height 0,507 em. |
 | **Interfaccia** — etichette, bottoni, nomi nelle liste, testo corrente | **Schibsted Grotesk** (variabile, `wght` 400–900) | `--rf-font-ui` | Grottesco editoriale (nato per un gruppo di quotidiani); x-height alta (0,527 em) → leggibile sul telefono; personalità senza decorazione. Non è Inter. |
-| **Importi e orari in colonna** | **IBM Plex Mono** (400, 500) | `--rf-font-money` | Monospaziato con genealogia da macchina per scrivere: richiama il nastro della calcolatrice. Zero senza barra; virgola e punto larghi come le cifre → **allineamento decimale perfetto**. |
+| **Importi e orari in colonna** | **IBM Plex Mono** (400, 500) | `--rf-font-money` | Monospaziato con genealogia da macchina per scrivere: richiama il nastro della calcolatrice. Zero con **punto centrale** (più discreto della barra di Red Hat Mono e Atkinson; distingue 0 da O nei campi); virgola e punto larghi come le cifre → **allineamento decimale perfetto**. |
 
 Installazione e pacchetti npm verificati: `frontend/src/styles/fonts.md`.
+
+**Glifi assenti.** Nessuno dei tre font ha `≈ → ← ⌘ ↵ ↻ ✓ ▾ ▸`. In interfaccia: frecce → icona `ArrowRight` (o le parole «da … a …»); scorciatoie → `<kbd>` con icona `Command` + «K» su Apple, «Ctrl K» altrove, «Invio» a parole; «circa» → icona `ApproximateEquals` nelle forme compatte, parola **circa** nelle frasi; tendine/espandi/fatto → `CaretDown`/`CaretRight`/`Check`. Dettagli in `fonts.md`. (Nei wireframe ASCII di 03 i simboli restano come notazione.)
 
 ### Regole d'uso delle cifre (importante)
 
@@ -135,22 +138,24 @@ Rapporti di contrasto WCAG 2.2 calcolati sui valori esatti (script in scratchpad
 | `--rf-highlight` | Evidenziatore | `#F5E27A` | `#5B5018` | **solo `--rf-ink` sopra** | **13,00** | **6,54** |
 
 Regole:
-- Sull'evidenziatore si scrive **solo** con `--rf-ink` (in scuro `--rf-ink-2` scende a 4,30: vietato).
+- Sull'evidenziatore si scrive **solo** con `--rf-ink` (in scuro `--rf-ink-2` scende a 4,30, `--rf-ink-3` a 2,84: vietati). La utility `marker` **forza** `color: var(--rf-ink)`, anche dentro un testo secondario.
 - `--rf-rule` e `--rf-margin` non devono mai essere l'unico modo di capire qualcosa.
-- **Nessun altro colore.** Niente verde «successo» (un saldo a zero è «in pari», in `--rf-ink-2`), niente arancio «warning» (gli avvisi usano icona + testo inchiostro). Gli errori usano `--rf-danger` (= debito) **sempre con icona e testo**.
+- **Nessun altro colore.** Niente verde «successo» (un saldo a zero è «in pari», in `--rf-ink-2`), niente arancio «warning» (gli avvisi usano icona + testo inchiostro). Gli errori usano `--rf-danger` (= debito) **sempre con icona e testo**; sui campi l'errore è un **bordo** di 2 px (utility `field-error`), mai un'ombra, così il focus non lo copre.
+- Velo dei dialog: `--rf-scrim` (utility `bg-scrim`).
 
 ### Semantica
 
 | Significato | Colore | Forma obbligatoria oltre al colore |
 |---|---|---|
 | **Ti deve** (debito dello studente) | `--rf-debito` | parola «deve» / «ti deve» |
-| **In credito** (anticipo) | `--rf-credito` | parola «credito» + ore equivalenti («≈ 2 h») |
+| **In credito** (anticipo) | `--rf-credito` | parola «credito» + tempo equivalente da `credit_minutes` («≈ 1 h 49 min», §7) |
 | **In pari** | `--rf-ink-2` | parola «in pari» |
+| **Programmata** (lezione non ancora finita, `settled: false`) | testo `--rf-ink`, importo `--rf-ink-3` | etichetta «Programmata · non ancora nel saldo»; non cambia il saldo progressivo |
 | **Bozza di Matita** | `--rf-pencil` + tratteggio + campitura | etichetta «Bozza» o «Matita propone» |
-| **Inchiostro** (confermato) | `--rf-ink` | — è lo stato normale |
-| **Oggi / adesso / token riconosciuto** | `--rf-highlight` (fondo, metà bassa della riga) | testo esplicito («tra 40 min», «oggi») |
-| **Focus** | contorno 2 px `--rf-ink` + alone 3 px `--rf-highlight` | — |
-| **Errore** | `--rf-danger` | icona `warning` + messaggio |
+| **Inchiostro** (confermato, nel saldo) | `--rf-ink` | — è lo stato normale |
+| **Oggi / adesso / token riconosciuto** | `--rf-highlight` (fondo, metà bassa della riga) | testo esplicito («tra 40 min», «oggi», «in corso») |
+| **Focus** | contorno 2 px `--rf-ink` + alone `--rf-highlight` (fuori dal bordo) | — |
+| **Errore** | `--rf-danger` | icona `Warning` + messaggio; sui campi bordo 2 px |
 
 ### Modalità scura «Notte»
 Stessi nomi di token, valori in `tokens.css`. Attivazione: automatica con `prefers-color-scheme: dark` **a meno che** `<html data-theme="light">`; forzata con `data-theme="dark"`. Il selettore in Impostazioni ha tre voci: Sistema / Chiaro / Scuro (salvare la scelta in `localStorage` e applicarla con uno script inline in `<head>` prima del paint, come in `specimen.html`).
@@ -180,7 +185,7 @@ Cerchi solo per l'avatar (iniziali) e per i punti di stato. **Mai pillole**, mai
 | **Linea di margine** (solo scheda studente) | 1 px `--rf-margin`, opacità 0,7, verticale tra colonna Data e colonna Voce (x = 104 px desktop, 72 px mobile) |
 | **Doppia riga del totale** | `border-bottom: 3px double var(--rf-ink)` (utility `rule-total`) sotto saldo e totali |
 | Riga di Matita (prossima riga da scrivere) | `border-bottom: 1px solid var(--rf-ink-3)` (più scura delle altre: «qui si scrive») |
-| Tratteggio bozza | disegnato con 4 `linear-gradient` (utility `pencil-dash`): trattino 6 px, vuoto 5 px, spessore 1,5 px — **non** `border-style: dashed` (passo diverso per browser, non animabile) |
+| Bozza a matita | utility **`pencil-draft`**: in un solo `background` i 4 lati tratteggiati (trattino 6 px `--rf-dash`, vuoto 5 px `--rf-dash-gap`, spessore 1,5 px `--rf-dash-w`) sopra la campitura a 45° — **non** `border-style: dashed` (passo diverso per browser, non animabile). Per staccarla di 2 px dai filetti: `before:absolute before:inset-0.5 before:pencil-draft`. Solo tratteggio (badge «Bozza»): `pencil-dash`. Le due utility non si combinano (scrivono entrambe `background-image`) |
 
 ### Elevazione
 | Livello | Cosa | Come |
@@ -207,14 +212,19 @@ Cerchi solo per l'avatar (iniziali) e per i punti di stato. **Mai pillole**, mai
 | Studenti | `Student` |
 | Agenda | `CalendarDots` |
 | Impostazioni / Altro | `GearSix` |
-| Pagamento | `Coins` · contanti `Money` · bonifico `Bank` |
-| Lezione / orario | `Clock` |
+| Pagamento | `Coins` · contanti `Money` · bonifico `Bank` · altro `Wallet` |
+| Lezione / orario | `Clock` · programmata `CalendarDots` |
 | Cambio tariffa | `ArrowsClockwise` |
-| Promemoria | `ChatText` · invio `WhatsappLogo` · `Copy` |
+| Promemoria | `ChatText` · invio `WhatsappLogo` · `Copy` · email `EnvelopeSimple` |
 | Annulla ultima azione | `ArrowUUpLeft` |
+| Duplica (settimana dopo, altro studente) | `CopySimple` |
 | Elimina | `Eraser` (cancellare a matita) — `Trash` solo per «Elimina studente» |
-| Sincronizzato con Calendar | `CloudCheck` · errore `CloudSlash` |
-| Fuori ambito | `Prohibit` · limite `HourglassMedium` · errore `Warning` |
+| Archivia / ripristina studente | `Archive` |
+| Storico modifiche | `ClockCounterClockwise` |
+| Sincronizzato con Calendar | `CloudCheck` · errore o rete assente `CloudSlash` · risincronizza `ArrowsClockwise` |
+| Accesso | Google: logo «G» ufficiale (linee guida Google Sign-In) · link via email `EnvelopeSimple` · demo `UserCircleDashed` |
+| Matita | fuori ambito `Prohibit` · limite `HourglassMedium` · non disponibile `PencilSimpleSlash` · avviso `Warning` |
+| Glifi sostituiti | `ArrowRight` (→), `ApproximateEquals` (≈), `Command` (⌘), `CaretDown` (▾), `CaretRight` (▸), `Check` (✓) |
 
 ---
 
@@ -236,18 +246,22 @@ export const amount = (cents: number) =>                                     // 
 | Dato | Formato | Esempio | Note |
 |---|---|---|---|
 | Denaro | sempre 2 decimali, punto migliaia, virgola decimali, «€» dopo con U+00A0 | `1.234,50 €` | Gestire **centesimi interi** lato dati; mai float. |
-| Saldo | parola + importo **senza segno** | «ti deve 67,00 €» · «credito 40,00 € ≈ 2 h» · «in pari» | Ore equivalenti = credito ÷ tariffa attuale, arrotondate alla mezz'ora, prefisso «≈». |
+| Saldo | parola + importo **senza segno**, da `balance.balance_cents` | «ti deve 67,00 €» · «credito 40,00 € · ≈ 1 h 49 min» · «in pari» | Il tempo equivalente è **`balance.credit_minutes`** dell'API (credito × 60 ÷ tariffa corrente, **per difetto** al minuto: docs/04): non si ricalcola dai centesimi. Formato «≈ H h MM min» con il formattatore delle durate; «≈» è l'icona `ApproximateEquals` (`aria-label` «circa»), nelle frasi si scrive «circa 1 h 49 min». Senza tariffa corrente (`credit_minutes: null`) si mostra solo l'importo. |
+| Saldo previsto | «Previsto con le lezioni programmate: » + parola + importo, da `balance.projected_balance_cents` | «Previsto con le lezioni programmate: deve 100,00 €» | Solo se `scheduled_cents > 0`. Mai al posto del saldo. |
 | Tariffa | importo + «/h» | `22,00 €/h` | |
-| Durata | `H h MM` in colonna, `H h MM min` in frase | `1 h 30` · `1 h 30 min` · `45 min` · `2 h` | Mai «1,5 h» in UI. |
+| Durata | `H h MM` in colonna, `H h MM min` in frase | `1 h 30` · `1 h 30 min` · `45 min` · `2 h` | Mai «1,5 h» in UI. Stesso formattatore per lezioni, totali del mese e credito. |
 | Orario | 24 h, due cifre | `15:00` · intervallo `15:00–16:30` | Trattino lungo `–` (U+2013) senza spazi. |
 | Data in riga | giorno abbreviato + numero + mese abbreviato | `mar 6 ott` | Anno solo se ≠ anno corrente: `lun 28 set 2025`. |
 | Data in titolo | esteso | `martedì 6 ottobre` | Minuscolo. |
 | Relativo | entro ±2 giorni | `ieri` · `oggi` · `domani` · `dopodomani` | `Intl.RelativeTimeFormat("it",{numeric:"auto"})`. |
 | Tempo che manca | < 3 h | `tra 40 min` · `tra 2 h 10 min` · `adesso` | Aggiornare ogni minuto. |
 | Settimana | da lunedì | `6–12 ott 2026` | |
-| Telefono | gruppi 3-3-4 | `347 512 0896` | Link `tel:` |
-| Classe | ordinale femminile/maschile | `3ª liceo scientifico` | Testo libero, nessun menu. |
+| Telefono | come l'ha scritto il tutor (testo libero ≤ 40) | `347 512 0896` | Link `tel:`. Per WhatsApp vedi la normalizzazione sotto. |
+| Classe | ordinale femminile/maschile | `3ª liceo scientifico` | Campo `grade` (≤ 60), testo libero; la scuola è un campo a parte (`school`). |
 | Elenchi | `Intl.ListFormat` | `Luca, Giulia e Marco` | |
+| Metodo di pagamento | `cash` → Contanti · `bank_transfer` → Bonifico · `other` → Altro | «Pagamento · altro» + nota «Satispay» | Etichette identiche al CSV e allo storico del backend. |
+
+**Numero per WhatsApp** (`https://wa.me/<cifre>?text=…`, implementato in `src/lib/format/phone.ts`). Il numero si usa **solo** nella scheda di uno studente (`context.student_id`): `guardian_phone` se c'è, altrimenti `phone`, e il bottone mostra a chi va («WhatsApp · 347 512 0896»). Normalizzazione: togli spazi, punti, trattini, barre e parentesi; `+` o `00` iniziale = già internazionale; cellulare italiano (`3…`, 9–10 cifre) o fisso (`0…`, lo 0 resta) → si antepone `39`; si scrivono solo cifre, senza `+`. Se il numero è dubbio, o non c'è uno studente nel contesto (Oggi, ⌘K), il link è `https://wa.me/?text=…` e WhatsApp chiede a chi mandarlo. Mai indovinare: un «331…» letto come +33 aprirebbe la chat di uno sconosciuto con un debito scritto dentro.
 
 ---
 
@@ -263,7 +277,8 @@ export const amount = (cents: number) =>                                     // 
 
 Regole:
 - **Nessuna** animazione d'ingresso di pagine/sezioni, nessun contatore che «conta» i numeri, nessun parallax, nessuno skeleton lampeggiante (lo skeleton è statico, vedi componenti).
-- Il saldo che cambia dopo una conferma: il numero si sostituisce e l'evidenziatore compare dietro per 1,2 s poi sfuma in 240 ms.
+- Il saldo che cambia dopo una conferma: il numero si sostituisce e l'evidenziatore compare dietro per 1,2 s poi sfuma in 240 ms. Vale anche per «Previsto» quando si programma una lezione futura (il saldo, in quel caso, non cambia).
+- `transition` senza durata esplicita usa `--rf-dur-1` / `--rf-ease-out` (mappati in `@theme`), quindi va a 0 con movimento ridotto.
 - `prefers-reduced-motion: reduce`: tutti i token di durata a 0 (già in `tokens.css`); il «sta scrivendo» diventa testo statico con puntini fissi; lo sheet appare senza traslazione.
 
 ---
@@ -281,6 +296,7 @@ Per ogni componente: anatomia, misure, stati. Stati standard sempre: **default �
 | **Quieto** | solo testo `--rf-ink-2`, sottolineato all'hover (offset 4 px) | azioni terziarie in riga |
 | **Pericolo** | bordo e testo `--rf-debito` | Elimina, Scollega Calendar; sempre seguito da conferma |
 | **Quadrato** | 44×44, solo icona + `aria-label` | «+» nuova lezione, chiudi |
+| **Piccolo** (`--rf-control-h-sm`, 36) | come le altre varianti | solo desktop ≥ 768 px, dentro le righe del registro e nelle card di Matita. Su mobile diventa 44 |
 
 Stati: hover inchiostro = `color-mix(in oklab, var(--rf-ink) 86%, var(--rf-paper))`; filo/quieto hover = fondo `--rf-paper-sunk`; pressed = `translateY(1px)`; disabled = opacità 0,4 e `cursor:not-allowed` (mai solo grigio senza spiegazione: affiancare il motivo); loading = etichetta resta, icona sostituita da 3 puntini statici, `aria-busy="true"`; focus = contorno + alone (§4).
 
@@ -288,69 +304,76 @@ Stati: hover inchiostro = `color-mix(in oklab, var(--rf-ink) 86%, var(--rf-paper
 
 - **Etichetta sopra**, Schibsted 500 14 px `--rf-ink-2`, 6 px dal campo. Mai placeholder come etichetta.
 - Campo: h 44, padding 0 12, fondo `--rf-paper-raised`, bordo 1 px `--rf-control`, raggio 3, testo 16 px.
-- Aiuto sotto: 13/18 `--rf-ink-3`. Errore: bordo 2 px `--rf-debito` (inset), messaggio con icona `Warning` in `--rf-debito`, `aria-describedby`.
+- Aiuto sotto: 13/18 `--rf-ink-3`. Errore: **bordo** 2 px `--rf-danger` (utility `field-error`, padding orizzontale 11 px per non far saltare il testo — mai `box-shadow`), messaggio con icona `Warning` in `--rf-danger`, `aria-invalid="true"` + `aria-describedby`. Il focus (contorno + alone esterni) si somma al bordo rosso: l'errore resta visibile mentre lo si corregge.
 - Stati: default, hover (bordo `--rf-ink-3`), focus (contorno + alone), compilato, errore, disabilitato (fondo `--rf-paper-sunk`, testo `--rf-ink-3`), sola lettura (nessun bordo, fondo sunk).
+- Campi di testo con limite del server: contatore «37/200» in `--rf-ink-3` sotto il campo quando mancano ≤ 40 caratteri (Argomento 200, Nota pagamento 500, Note 4000, nomi 80/120).
+- **Errori dal server** (`application/problem+json`): ogni `errors[].field` va sul campo omonimo come errore (stesso aspetto della validazione locale) e il focus si sposta sul primo campo in errore; ciò che non ha un campo (`detail` di un 409, 422 senza `errors`, 502) è una nota con `Warning` sopra la barra azioni. Lo sheet resta aperto, nessun toast. Dettagli e testi in 03 §10.
 - **Importo**: Plex Mono 18 px 500, «€» fisso a destra in `--rf-ink-3`, `inputmode="decimal"`, accetta virgola o punto, formatta al blur.
 
 ### 9.3 Data e ora
 
 - **Giorno**: campo che mostra `mar 6 ott 2026` + scorciatoie sotto come chip-testo: `Oggi · Ieri · Altro…`. Su mobile «Altro…» apre il date picker nativo (`<input type="date">`); su desktop un calendario 7 colonne lun→dom, oggi con evidenziatore, giorno scelto con fondo `--rf-ink`.
-- **Orario**: due campi `Inizio → Fine` affiancati, Plex Mono, `inputmode="numeric"`, accettano `15`, `1500`, `15:00`, `15.00`. Sotto: durata calcolata e importo («1 h 30 min · 33,00 € a 22,00 €/h»). Errore se fine ≤ inizio («La fine deve essere dopo l'inizio»).
-- Durate rapide sotto «Fine»: `+1 h · +1 h 30 · +2 h`.
+- **Orario**: due campi Inizio e Fine affiancati, separati dall'icona `ArrowRight` 16 px `--rf-ink-3`; Plex Mono, `inputmode="numeric"`, accettano `15`, `1500`, `15:00`, `15.00`. Sotto: durata calcolata e importo («1 h 30 min · 33,00 € a 22,00 €/h»). Errore se fine ≤ inizio («La fine deve essere dopo l'inizio.»); oltre 8 h avviso non bloccante («Sono 9 h di lezione: è giusto?»); oltre 12 h errore bloccante («Una lezione non può durare più di 12 ore.», come il server).
+- Durate rapide sotto «Fine»: `+1 h · +1 h 30 · +2 h`; la durata proposta all'apertura è `profile.default_lesson_minutes`.
 
 ### 9.4 Select / combobox studente e materia
 
 - Combobox con ricerca: si digita, la lista filtra; Invio sceglie il primo. Su mobile apre un **sheet** a tutta altezza con campo di ricerca in alto e righe da 56 px.
-- **Materia**: menu dalle materie dell'utente (Impostazioni), ordinate per uso con lo studente scelto; prima voce = ultima materia fatta con quello studente.
+- **Materia**: menu dalle materie attive dell'utente (Impostazioni, ordine `position`); preselezionata la **materia abituale** dello studente (`default_subject_id`), altrimenti l'ultima usata con lui. Facoltativa: «Nessuna materia» è una scelta valida.
 - Opzione finale «+ Nuova materia» / «+ Nuovo studente» in grafite.
 
 ### 9.5 Segmented control
 
 - Contenitore: bordo 1 px `--rf-control`, raggio 3, padding 2, fondo `--rf-paper-raised`. Segmento attivo: fondo `--rf-ink`, testo `--rf-on-ink`. h 44 su mobile (38 nel blocco componenti desktop).
-- Usi: **Contanti | Bonifico**, **Sistema | Chiaro | Scuro**, filtro studenti **Tutti | Ti devono | In credito**.
+- Usi: **Contanti | Bonifico | Altro** (icone `Money`, `Bank`, `Wallet`; con «Altro» la Nota diventa consigliata, segnaposto «es. Satispay, PayPal»), **Sistema | Chiaro | Scuro**, filtro studenti **Tutti | Ti devono | In credito**.
 - Ruolo ARIA: `radiogroup` con frecce sinistra/destra.
 
 ### 9.6 Righe del registro (componente centrale)
 
-Griglia desktop: `Data 104 px | Voce 1fr | Durata 76 | Lezione 100 | Pagato 100 | Saldo 136` (allineamento a destra per le ultime 4). Mobile: `Data 72 | Voce 1fr | Importo auto`, saldo progressivo su seconda riga sotto la voce.
+Dati: `GET /students/{id}/ledger` (`LedgerEntry[]`, ordine decrescente) + `student.rates` per le righe di cambio tariffa.
+Griglia desktop: `Data 104 px | Voce 1fr | Durata 76 | Lezione 100 | Pagato 100 | Saldo 136` (allineamento a destra per le ultime 4). Mobile: `Data 72 | Voce 1fr | Importo auto`, saldo progressivo su seconda riga sotto la voce. **Data su mobile a due righe**: «lun 5» (600) sopra, «ott» sotto (13 px `--rf-ink-3`; «set 2025» se l'anno è diverso); padding della cella 8 px a sinistra e 4 a destra, così «mer 30» e «set 2025» restano dentro i 72 px senza toccare la linea di margine. L'orario, su mobile, va nella colonna Voce.
 
 | Variante | Contenuto | Stile |
 |---|---|---|
-| **Lezione** | Data `lun 5 ott` + orario `17:00–19:00` (Plex 12) · **Materia** (600) · *argomento* (Literata italic) · nota 13 px · durata · importo in **Lezione** · saldo progressivo | inchiostro |
-| **Pagamento** | icona `Bank`/`Money` · **Pagamento** · metodo · nota · importo in **Pagato** in `--rf-credito` | inchiostro |
-| **Bozza (matita)** | come lezione o pagamento + riga «Matita ha letto: «…»» + azioni *Ripassa a penna* / *Modifica* / *Scarta*; saldo come «**sarà** 100,00 €» | testo `--rf-pencil`, tratteggio `pencil-dash` a 2 px dal bordo, campitura `pencil-hatch`. **Non** entra nei totali |
-| **Annullata** | materia barrata (1 px), nota «Annullata · non addebitata», importo «—» | `--rf-ink-3` |
-| **Cambio tariffa** | icona `ArrowsClockwise` · «Tariffa da 20,00 a 22,00 €/h per le lezioni da questa data» | riga bassa 40 px, fondo `--rf-paper`, 14 px |
-| **Riporto / apertura** | «Riporto al 27 set» o «Inizio registro» + saldo iniziale | Literata italic, doppia riga sotto |
+| **Lezione** (`kind: lesson`, `settled: true`) | Data `lun 5 ott` + orario `17:00–19:00` (Plex 12) · **Materia** (600; «Lezione» se senza materia) · *argomento* (Literata italic) · durata · importo in **Lezione** · saldo progressivo. Le note private non sono nel registro: si leggono aprendo la lezione | inchiostro |
+| **Programmata** (`settled: false`: la lezione non è ancora finita) | come Lezione; sotto, 13 px: «Programmata · non ancora nel saldo» (con evidenziatore «oggi · tra 40 min» o «in corso» quando serve); importo in `--rf-ink-3`; **cella Saldo vuota**: il saldo progressivo non cambia finché la lezione non finisce, poi la riga diventa Lezione da sola | inchiostro, nessun tratteggio (è scritta a penna, solo non ancora dovuta) |
+| **Pagamento** | icona `Money`/`Bank`/`Wallet` · **Pagamento** · contanti / bonifico / altro · nota (per «altro» è il «come»: «Satispay») · importo in **Pagato** in `--rf-credito` | inchiostro |
+| **Bozza (matita)** | lezione o pagamento proposto da Matita + riga «Matita ha letto: «…»» + **riga avvisi** (`warnings[]`: icona `Warning` 16 + testo `--rf-ink`, uno per riga) + azioni *Ripassa a penna* / *Modifica* / *Scarta*. Saldo: bozza di pagamento o di lezione già finita → «**sarà** deve 100,00 €» (saldo dello studente dopo la conferma); bozza di lezione futura → cella vuota e nota «Bozza · programmata: non entra subito nel saldo» | testo `--rf-pencil`, `pencil-draft` su uno pseudo-elemento a 2 px dal bordo. **Non** entra nei totali |
+| **Cambio tariffa** (da `student.rates`) | icona `ArrowsClockwise` · «Tariffa da 20,00 a 22,00 €/h per le lezioni da questa data» | riga bassa 40 px, fondo `--rf-paper`, 14 px |
+| **Riporto** (solo se il registro è mostrato da una data in poi) | «Riporto al 27 set» + saldo prima della riga più vecchia mostrata | Literata italic, doppia riga sotto |
 
-Saldo progressivo: `DEVE 67,00 €` (caption 11 px maiuscola + Plex), colore del significato. Righe più recenti in alto; la **prima riga è sempre la riga di Matita** (§9.13).
-Interazioni: clic/tap su una riga → sheet/dialog di modifica; su desktop hover mostra a destra «Modifica · …» (menu: Duplica, Annulla lezione, Elimina). Swipe su mobile: **no** (gesto nascosto, conflitti con lo scroll).
+Non esistono righe «annullata» o «da segnare»: una lezione che non c'è stata si **elimina**.
+Saldo progressivo: `DEVE 67,00 €` (caption 11 px maiuscola + Plex), colore del significato. Righe più recenti in alto; la **prima riga è sempre la riga di Matita** (§9.13), poi le bozze, poi le programmate, poi il resto.
+Interazioni: clic/tap su una riga → sheet/dialog di modifica (lezione: `GET /lessons/{id}`, con le note; pagamento: `GET /payments/{id}`); su desktop hover mostra a destra «Modifica · ⋯» (menu lezione: Duplica la settimana dopo, Duplica per un altro studente, Elimina; menu pagamento: Elimina). Elimina chiede conferma dicendo l'effetto: «Eliminare la lezione di lun 5 ott? Il saldo passa da deve 67,00 € a deve 23,00 €. Resta traccia nello storico modifiche.» / per una programmata «…Il saldo non cambia.» Swipe su mobile: **no** (gesto nascosto, conflitti con lo scroll).
+Calendar sulla riga (`calendar.status`): `error` → icona `CloudSlash` 16 accanto all'orario + `calendar.error` in nota e link «Risincronizza in Impostazioni»; `synced` → nessun segno in riga (`CloudCheck` solo nel dettaglio della lezione); `pending`/`off` → niente.
 
 ### 9.7 Badge saldo
 
 h 24, padding 3/8, raggio 3, etichetta Schibsted 600 12 px + importo Plex 500 13 px.
-`Ti deve 120,00 €` (fondo `--rf-debito-wash`, testo `--rf-debito`) · `Credito 40,00 € · 2 h` (wash/credito) · `In pari` (filetto interno `--rf-rule-strong`, testo `--rf-ink-2`) · `Bozza` (tratteggio grafite).
+`Ti deve 120,00 €` (fondo `--rf-debito-wash`, testo `--rf-debito`) · `Credito 40,00 € · ≈ 2 h` (wash/credito; «≈» = icona `ApproximateEquals` 14 px, tempo da `credit_minutes`) · `In pari` (filetto interno `--rf-rule-strong`, testo `--rf-ink-2`) · `Bozza` (`pencil-dash`, testo grafite).
 Nei listati lunghi (Conti aperti) si usa la forma **senza fondo**: parola maiuscola 12 px + importo Plex 16/500 colorati.
 
 ### 9.8 Elemento lista studente
 
-h ≥ 64 px. Sinistra: nome Schibsted 500 16 px; sotto 14 px `--rf-ink-3`: «Matematica, Fisica · ultima lezione lun 5 ott». Destra: saldo (forma senza fondo). Freccia `CaretRight` 20 px `--rf-ink-3`. Tutta la riga è un link alla scheda.
+Dati: `StudentSummary`. h ≥ 64 px. Sinistra: `display_name` Schibsted 500 16 px; sotto 14 px `--rf-ink-3`: classe (`grade`, o `school` se manca) · «prossima gio 8 ott, 15:00» (`next_lesson`) oppure «ultima lun 5 ott» (`last_lesson_date`). Destra: saldo (forma senza fondo; credito con «≈ H h MM min»). Freccia `CaretRight` 20 px `--rf-ink-3`. Tutta la riga è un link alla scheda. Le materie non compaiono: lo studente ha solo una materia abituale e la lista non la riceve.
 
 ### 9.9 Voce agenda del giorno
 
-Griglia `58 px | 1fr | auto`. Ora inizio Plex 16/500, fine sotto Plex 12 `--rf-ink-3`. Nome 600 16 px, sotto «Materia · tra 40 min» con «tra 40 min» su evidenziatore se < 3 h. Lezione passata e non registrata: nota grafite «Da segnare» + bottone filo 36 px «Segna» (desktop) / tap riga (mobile). Separatore di giorno: caption `MER 7 OTT`.
+Dati: `Lesson`. Griglia `58 px | 1fr | auto`. Ora inizio Plex 16/500, fine sotto Plex 12 `--rf-ink-3`. Nome 600 16 px, sotto «Materia · tra 40 min» con «tra 40 min» su evidenziatore se < 3 h; tra inizio e fine «in corso» su evidenziatore. In Agenda le lezioni già finite (nel saldo) hanno il testo in `--rf-ink-2`, le programmate in `--rf-ink`: nessun altro segno, perché una lezione finita entra nel saldo da sola. Separatore di giorno: caption `MER 7 OTT`.
 
 ### 9.10 Stati vuoti
 
 Tono: una frase che dice cosa succede + una azione. Nessuna illustrazione 3D. Grafica ammessa: **la riga di Matita vuota** o un frammento di 6 righe tratteggiate («pagina bianca»).
 - Studenti: «Nessuno studente. Inizia dal primo: nome e tariffa bastano.» [Aggiungi studente]
 - Registro: «Pagina bianca. Scrivi la prima riga qui sopra o usa il modulo.»
-- Oggi senza lezioni: «Oggi niente lezioni. La prossima è gio 8 ott alle 16:00 con Marco.» / «Nessuna lezione in programma.»
+- Oggi senza lezioni nei prossimi 7 giorni: «Nessuna lezione in programma nei prossimi 7 giorni.» + «Aggiungi una lezione».
 - Conti tutti in pari: «Tutti in pari.» (in `--rf-ink-2`, nessuna festa).
+- Mese senza lezioni finite: «ottobre 2026 · nessuna lezione svolta finora.»
+- Storico modifiche vuoto: «Nessuna modifica registrata.»
 
 ### 9.11 Toast
 
-Fondo `--rf-ink`, testo `--rf-on-ink` 15 px, raggio 6, h ≥ 48, max 420 px; in basso al centro sopra la tab bar (mobile) / in basso a sinistra (desktop). Durata 5 s, 8 s se contiene «Annulla»; pausa all'hover/focus. `role="status"`. Esempi: «Lezione registrata · in Calendar [Annulla]», «Pagamento di 100,00 € registrato [Annulla]». Errori **non** sono toast: restano accanto al campo o nella riga.
+Fondo `--rf-ink`, testo `--rf-on-ink` 15 px, raggio 6, h ≥ 48, max 420 px; in basso al centro sopra la tab bar (mobile) / in basso a sinistra (desktop). Durata 5 s, 8 s se contiene «Annulla»; pausa all'hover/focus. `role="status"`. Esempi: «Lezione registrata · nel saldo [Annulla]», «Lezione programmata per gio 8 ott [Annulla]», «Pagamento di 100,00 € registrato [Annulla]», «12 lezioni in coda per Google Calendar». «Annulla» su una creazione = `DELETE` di ciò che si è appena creato (lo storico lo registra); su una modifica = `PATCH` con i valori di prima. Errori **non** sono toast: restano accanto al campo o nella riga.
 
 ### 9.12 Dialog e bottom sheet
 
