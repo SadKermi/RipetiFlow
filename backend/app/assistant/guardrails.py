@@ -172,8 +172,6 @@ def stated_cents(text: str) -> set[int]:
         whole = int(match.group("int").replace(".", ""))
         decimals = match.group("dec")
         found.add(whole * 100 + (int(decimals.ljust(2, "0")) if decimals else 0))
-        if "." in match.group("int"):  # "1.20" typed as a decimal point would not reach here; "1.200" both ways
-            found.add(int(match.group("int").replace(".", "")) * 100)
     ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
     for word in _WORD.findall(ascii_text):
         value = italian_number(word)
@@ -260,7 +258,9 @@ async def _lesson(
     day = format_date_it(draft.date, with_year=False)
     for other in overlapping:
         if other["student_id"] == student["id"]:
-            warnings.append(f"Esiste già una lezione con {first_name} il {day} alle {other['start_time']:%H:%M}.")
+            warnings.append(
+                f"Esiste già una lezione con {first_name} il {day} alle {other['start_time']:%H:%M}."
+            )
         else:
             other_name = display_name(other["first_name"], other["last_name"])
             warnings.append(
@@ -283,9 +283,9 @@ async def _lesson(
             f"Si sovrappone a un'altra bozza ({other_draft.student.display_name}, "
             f"{other_draft.start_time:%H:%M}–{other_draft.end_time:%H:%M})."
         )
-        other_draft.warnings.append(
-            f"Si sovrappone a un'altra bozza ({name}, {draft.start_time:%H:%M}–{draft.end_time:%H:%M})."
-        )
+        back = f"Si sovrappone a un'altra bozza ({name}, {draft.start_time:%H:%M}–{draft.end_time:%H:%M})."
+        if back not in other_draft.warnings:
+            other_draft.warnings.append(back)
     if dt.datetime.combine(draft.date, draft.end_time) > clock.local_naive:
         warnings.append("Data nel futuro: la lezione sarà programmata.")
     if student["archived_at"] is not None:
@@ -303,7 +303,7 @@ async def _lesson(
         amount_cents=amount,
         topic=clean_text(draft.topic, 200) or None if draft.topic else None,
         notes=clean_text(draft.notes, 4000) or None if draft.notes else None,
-        warnings=warnings,
+        warnings=list(dict.fromkeys(warnings)),  # e.g. the same overlap with two identical drafts
     )
 
 
@@ -407,9 +407,9 @@ async def enrich_drafts(
         if isinstance(draft, PaymentDraftIn):
             payments = [d for d in slots if isinstance(d, PaymentDraft)]
             slots[index] = await _payment(conn, draft, clock, out, payments)
-    for draft in slots:
-        if isinstance(draft, PaymentDraft) and UNSTATED_AMOUNT_WARNING not in draft.warnings:
-            out.allowed_cents.add(draft.amount_cents)
+    for done in slots:
+        if isinstance(done, PaymentDraft) and UNSTATED_AMOUNT_WARNING not in done.warnings:
+            out.allowed_cents.add(done.amount_cents)
     for index, draft in enumerate(parsed):
         if isinstance(draft, MessageDraftIn):
             slots[index] = _message(draft, out)

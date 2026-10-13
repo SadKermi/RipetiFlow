@@ -460,8 +460,9 @@ async def execute_tool(ctx: ToolContext, name: str, arguments: Any) -> str:
         return json.dumps({"error": str(exc)}, ensure_ascii=False)
     except asyncpg.PostgresError:
         return json.dumps({"error": "Dati non disponibili."})
-    _collect_cents(payload, ctx.known_cents)
     text = json.dumps(payload, ensure_ascii=False, default=str)
     if len(text) > MAX_TOOL_OUTPUT_CHARS:
-        text = json.dumps({"error": "Troppi risultati: restringi l'intervallo o filtra per studente."})
+        return json.dumps({"error": "Troppi risultati: restringi l'intervallo o filtra per studente."})
+    # Only what the model actually received is a source of amounts (guardrails.AmountSources).
+    _collect_cents(payload, ctx.known_cents)
     return text

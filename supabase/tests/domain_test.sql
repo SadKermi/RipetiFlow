@@ -208,5 +208,89 @@ begin
   assert (select count(*) from app.calendar_outbox) = 0, 'outbox removed with the account';
 end $$;
 
+-- Calendar link lifecycle (D-31): "Scollega" keeps the row as `disconnected` (no token, hidden from
+-- the tutor, queue off); only `active` links queue lesson changes. Tutor B from here on.
+reset role;
+insert into app.google_calendar_links (tutor_id, refresh_token_ciphertext, calendar_id)
+  values ('00000000-0000-0000-0000-00000000000b', 'ciphertext-b', 'cal-b@group.calendar.google.com');
+do $$
+begin
+  begin
+    update app.google_calendar_links set status = 'disconnected'
+      where tutor_id = '00000000-0000-0000-0000-00000000000b';
+    raise exception 'a disconnected link must not keep the token';
+  exception when check_violation then null;
+  end;
+  begin
+    update app.google_calendar_links set refresh_token_ciphertext = null
+      where tutor_id = '00000000-0000-0000-0000-00000000000b';
+    raise exception 'a link that is not disconnected needs its token';
+  exception when check_violation then null;
+  end;
+  begin
+    update app.google_calendar_links set status = 'paused'
+      where tutor_id = '00000000-0000-0000-0000-00000000000b';
+    raise exception 'unknown link status must be rejected';
+  exception when check_violation then null;
+  end;
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+insert into app.students (id, first_name) values ('10000000-0000-0000-0000-0000000000b1', 'Marco');
+insert into app.student_rates (student_id, hourly_rate_cents, effective_from) values
+  ('10000000-0000-0000-0000-0000000000b1', 1500, '2025-01-01');
+insert into app.lessons (id, student_id, lesson_date, start_time, end_time) values
+  ('20000000-0000-0000-0000-0000000000b1', '10000000-0000-0000-0000-0000000000b1', '2099-02-01', '10:00', '11:00');
+do $$
+begin
+  assert (select count(*) from app.google_calendar_links) = 1, 'an active link is visible to its tutor';
+  assert (select count(*) from app.calendar_outbox where lesson_id = '20000000-0000-0000-0000-0000000000b1') = 1,
+    'an active link queues the new lesson';
+  begin
+    perform refresh_token_ciphertext from app.google_calendar_links;
+    raise exception 'refresh token column must stay unreadable';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform sweep_requested_at from app.google_calendar_links;
+    raise exception 'sweep bookkeeping is not granted to users';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+update app.google_calendar_links
+  set status = 'disconnected', refresh_token_ciphertext = null, sweep_requested_at = now()
+  where tutor_id = '00000000-0000-0000-0000-00000000000b';
+do $$
+begin
+  assert not app.calendar_sync_enabled('00000000-0000-0000-0000-00000000000b'), 'disconnected: sync off';
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+update app.lessons set topic = 'Ripasso' where id = '20000000-0000-0000-0000-0000000000b1';
+do $$
+begin
+  assert (select count(*) from app.google_calendar_links) = 0, 'a disconnected link is hidden from the tutor';
+  assert (select count(*) from app.calendar_outbox where lesson_id = '20000000-0000-0000-0000-0000000000b1') = 1,
+    'no new outbox rows while disconnected';
+end $$;
+reset role;
+update app.google_calendar_links set status = 'revoked', refresh_token_ciphertext = 'ciphertext-b2'
+  where tutor_id = '00000000-0000-0000-0000-00000000000b';
+do $$
+begin
+  assert not app.calendar_sync_enabled('00000000-0000-0000-0000-00000000000b'), 'revoked: sync off';
+  assert (select calendar_id from app.google_calendar_links
+          where tutor_id = '00000000-0000-0000-0000-00000000000b') = 'cal-b@group.calendar.google.com',
+    'the calendar id survives the whole lifecycle';
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+do $$
+begin
+  assert (select status from app.google_calendar_links) = 'revoked', 'a revoked link stays visible (UI warning)';
+end $$;
+reset role;
+
 select 'domain_test: all assertions passed' as result;
 rollback;

@@ -1,10 +1,17 @@
 """Google Calendar one-way sync (D-31): connect/resync/disconnect + the outbox worker.
 
 Lesson changes are queued in `app.calendar_outbox` by triggers, in the same transaction as the
-change. The worker claims due rows with a short lease (`for update skip locked`), coalesces the
-operations per lesson (the latest wins) and pushes them to the dedicated "RipetiFlow" calendar.
-Events carry `extendedProperties.private.ripetiflow_lesson_id`, which makes every operation
-idempotent: an event that already exists for a lesson is adopted instead of duplicated.
+change, while the tutor's link is `active`. The worker claims due rows with a short lease (`for update
+skip locked`), coalesces the operations per lesson (the latest wins) and pushes them to the dedicated
+"RipetiFlow" calendar. Events carry `extendedProperties.private.ripetiflow_lesson_id`, which makes every
+operation idempotent: an event that already exists for a lesson is adopted instead of duplicated, and
+the orphan sweep of "Risincronizza" decides by that property alone.
+
+Link lifecycle: `active` → `revoked` (Google refused the refresh token: the tutor reconnects) or
+`disconnected` ("Scollega": token revoked and erased, calendar id kept so that the next "Collega"
+re-uses the same calendar; `calendarList.list` is not allowed by the `calendar.app.created` scope).
+Connect, disconnect and the recovery of a calendar deleted in Google are serialised per tutor by a
+Postgres advisory lock held for the length of a transaction, so it also works across processes.
 """
 
 from __future__ import annotations
@@ -15,6 +22,7 @@ import datetime as dt
 import logging
 import uuid
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 import asyncpg
@@ -34,22 +42,64 @@ from app.calendar.google import (
 from app.core.auth import CurrentUser
 from app.core.errors import ApiError, conflict, invalid
 from app.db.pool import Conn, Database
-from app.domain.common import display_name, tutor_clock
+from app.domain.common import display_name, tutor_clock, zone
 from app.domain.dashboard import calendar_counts
 from app.schemas import CalendarStatus
 
 logger = logging.getLogger("ripetiflow.calendar")
 
 MAX_ATTEMPTS = 8
+# Delay (minutes) before retry n, n = failures so far (1..7): 1 min → 6 h. The 8th failure parks the
+# row until "Risincronizza" or a reconnect re-arms it.
+RETRY_DELAYS_MINUTES = (1, 5, 15, 60, 120, 240, 360)
 BATCH_SIZE = 100
 LEASE = dt.timedelta(minutes=5)
+SWEEP_RETRY = dt.timedelta(minutes=15)  # also the lease of a running sweep
+SWEEP_BATCH = 10
+LOCK_NAMESPACE = "ripetiflow.calendar"
+TOKEN_FIELD = "provider_refresh_token"  # noqa: S105 (a field name, not a secret)
+
 REVOKED_MESSAGE = "Accesso a Google Calendar revocato: ricollega il calendario in Impostazioni."
 NOT_CONFIGURED = "La sincronizzazione con Google Calendar non è configurata su questo server."
+NOT_CONNECTED = "Collega prima Google Calendar dalle Impostazioni."
+AUTH_REFUSED = "Google non ha accettato l'autorizzazione: riprova a collegare il calendario."
+SCOPE_MISSING = (
+    "Per sincronizzare devi concedere l'accesso a Google Calendar: riprova e lascia selezionata "
+    "l'autorizzazione al calendario."
+)
+GOOGLE_DOWN = "Google Calendar non risponde. Riprova tra poco."
+CREATE_FAILED = "Non è stato possibile creare il calendario su Google."
+DELETE_FAILED = (
+    "Non è stato possibile eliminare il calendario da Google: il collegamento è ancora attivo, "
+    "riprova tra poco."
+)
+RETRY_SUFFIX = " Nuovo tentativo automatico più tardi."
+PARKED_SUFFIX = " Tentativi esauriti: usa «Risincronizza» nelle Impostazioni."
 
 
 def backoff(attempts: int) -> dt.timedelta:
-    """1 min, 2, 4, ... capped at 6 h (attempts counted after the failure)."""
-    return min(dt.timedelta(minutes=2 ** max(attempts - 1, 0)), dt.timedelta(hours=6))
+    """Delay before the next try after `attempts` failures (1..7); the 8th failure parks the row."""
+    index = min(max(attempts, 1), len(RETRY_DELAYS_MINUTES)) - 1
+    return dt.timedelta(minutes=RETRY_DELAYS_MINUTES[index])
+
+
+def failure_text(exc: GoogleError) -> str:
+    """Italian description of a failed Google call for the UI. Google's own text only goes to the log."""
+    if exc.status is None:
+        return "Google Calendar non è raggiungibile."
+    if exc.rate_limited:
+        return "Limite di richieste a Google Calendar raggiunto."
+    if exc.status == 401:
+        return "La sessione con Google è scaduta."
+    if exc.insufficient_scope:
+        return "Manca l'autorizzazione a Google Calendar: ricollega il calendario."
+    if exc.status == 403:
+        return "Google Calendar ha rifiutato l'operazione."
+    if exc.status in (404, 410):
+        return "Calendario o evento non trovato su Google."
+    if exc.status >= 500:
+        return "Google Calendar non risponde."
+    return "Google Calendar non ha accettato l'evento."
 
 
 def event_body(lesson: asyncpg.Record | dict[str, Any], public_app_url: str) -> dict[str, Any]:
@@ -75,6 +125,28 @@ def event_body(lesson: asyncpg.Record | dict[str, Any], public_app_url: str) -> 
     }
 
 
+def _lesson_uuid(value: str | None) -> uuid.UUID | None:
+    if not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
+
+
+# Lessons selected by _requeue. $2 null = every lesson; otherwise lessons dated $2 or later, plus
+# (with $3) lessons changed after their last push or, never pushed, after $3, plus (with $4) lessons
+# that already have an event.
+_REQUEUE_SELECT = """
+select l.id from app.lessons l
+where l.tutor_id = $1
+  and ($2::date is null
+       or l.lesson_date >= $2
+       or ($3::timestamptz is not null and l.updated_at > coalesce(l.gcal_synced_at, $3::timestamptz))
+       or ($4::boolean and l.gcal_event_id is not null))
+"""
+
+
 class CalendarSync:
     def __init__(
         self,
@@ -91,7 +163,6 @@ class CalendarSync:
         self.interval = interval_seconds
         self._tokens: dict[uuid.UUID, AccessToken] = {}
         self._wake = asyncio.Event()
-        self._sweeps: set[uuid.UUID] = set()
         self._task: asyncio.Task[None] | None = None
 
     @property
@@ -129,7 +200,7 @@ class CalendarSync:
             self._wake.clear()
 
     # -----------------------------------------------------------------------------------------
-    # Tokens
+    # Tokens, lock, link state
     # -----------------------------------------------------------------------------------------
 
     async def _access_token(self, tutor_id: uuid.UUID, ciphertext: str) -> AccessToken:
@@ -142,30 +213,141 @@ class CalendarSync:
         self._tokens[tutor_id] = token
         return token
 
-    async def _mark_revoked(self, tutor_id: uuid.UUID, message: str = REVOKED_MESSAGE) -> None:
+    @contextlib.asynccontextmanager
+    async def _tutor_lock(self, tutor_id: uuid.UUID) -> AsyncIterator[Conn]:
+        """Privileged transaction that holds the tutor's calendar lock until it ends.
+
+        The lock is transaction-scoped, so it is released on commit, rollback or a lost connection, and
+        it works through the Supabase pooler. Never call _mark_revoked while holding it after writing
+        the link row (that would wait on our own row lock).
+        """
+        async with self.db.privileged_tx() as conn:
+            await conn.execute(
+                "select pg_advisory_xact_lock(hashtextextended($1, 0))", f"{LOCK_NAMESPACE}:{tutor_id}"
+            )
+            yield conn
+
+    async def _mark_revoked(self, tutor_id: uuid.UUID) -> None:
         self._tokens.pop(tutor_id, None)
         async with self.db.privileged_tx() as conn:
             await conn.execute(
                 "update app.google_calendar_links set status = 'revoked', last_error = $2"
-                " where tutor_id = $1",
+                " where tutor_id = $1 and status = 'active'",
                 tutor_id,
-                message,
+                REVOKED_MESSAGE,
             )
-            # Park the pending rows as failed: lessons show the error until the user reconnects.
+            # Park the pending rows as failed: lessons show the error until the tutor reconnects, and
+            # the reconnect re-arms them.
             await conn.execute(
                 """update app.calendar_outbox set attempts = $2, last_error = $3
                    where tutor_id = $1 and processed_at is null""",
                 tutor_id,
                 MAX_ATTEMPTS,
-                message,
+                REVOKED_MESSAGE,
             )
+
+    async def _forget_events(self, conn: Conn, tutor_id: uuid.UUID) -> None:
+        """The calendar was replaced: stored event ids point to the old one."""
+        await conn.execute(
+            """update app.lessons set gcal_event_id = null, gcal_synced_at = null
+               where tutor_id = $1 and (gcal_event_id is not null or gcal_synced_at is not null)""",
+            tutor_id,
+        )
+
+    async def _requeue(
+        self,
+        conn: Conn,
+        tutor_id: uuid.UUID,
+        *,
+        since: dt.date | None,
+        changed_after: dt.datetime | None = None,
+        with_events: bool = False,
+    ) -> int:
+        """Queue an upsert for the selected lessons (see _REQUEUE_SELECT) and re-arm the rest.
+
+        Pending upserts of the selected lessons are superseded by the new rows. Every other pending row
+        (deletes, upserts of lessons out of scope, rows parked by a revocation or by the backoff) is
+        re-armed: attempts 0, no error, due now. Nothing that is still owed to Google is dropped.
+        """
+        ids = [
+            r["id"] for r in await conn.fetch(_REQUEUE_SELECT, tutor_id, since, changed_after, with_events)
+        ]
+        await conn.execute(
+            """update app.calendar_outbox set processed_at = now()
+               where tutor_id = $1 and processed_at is null and op = 'upsert'
+                 and lesson_id = any($2::uuid[])""",
+            tutor_id,
+            ids,
+        )
+        await conn.execute(
+            """update app.calendar_outbox set attempts = 0, last_error = null, next_attempt_at = now()
+               where tutor_id = $1 and processed_at is null""",
+            tutor_id,
+        )
+        if ids:
+            await conn.execute(
+                """insert into app.calendar_outbox (tutor_id, lesson_id, op, gcal_event_id)
+                   select l.tutor_id, l.id, 'upsert', l.gcal_event_id from app.lessons l
+                   where l.id = any($1::uuid[])
+                   order by l.lesson_date, l.start_time""",
+                ids,
+            )
+        return len(ids)
+
+    async def _replace_missing_calendar(self, tutor_id: uuid.UUID, missing_id: str) -> bool:
+        """`missing_id` answered 404. If it is really gone (deleted by hand in Google), create a new
+        calendar, point the link at it and queue the lessons again (upcoming ones and every lesson that
+        had an event). Returns False when the calendar still exists; True when the caller's work for
+        this tutor is obsolete (replaced now or by a concurrent call, or sync was switched off).
+        Raises GoogleError / GoogleAuthError / TokenDecryptError with nothing changed.
+        """
+        assert self.google is not None
+        async with self._tutor_lock(tutor_id) as conn:
+            link = await conn.fetchrow(
+                "select calendar_id, status, refresh_token_ciphertext from app.google_calendar_links"
+                " where tutor_id = $1",
+                tutor_id,
+            )
+            if (
+                link is None
+                or link["status"] != "active"
+                or link["calendar_id"] != missing_id
+                or link["refresh_token_ciphertext"] is None
+            ):
+                return True
+            token = await self._access_token(tutor_id, link["refresh_token_ciphertext"])
+            if await self.google.calendar_exists(token.token, missing_id):
+                return False
+            tz_name = (
+                await conn.fetchval("select timezone from app.profiles where id = $1", tutor_id)
+                or "Europe/Rome"
+            )
+            calendar_id = await self.google.create_calendar(token.token, CALENDAR_SUMMARY, tz_name)
+            logger.warning(
+                "calendar %s of tutor %s no longer exists in Google: recreated as %s",
+                missing_id,
+                tutor_id,
+                calendar_id,
+            )
+            await conn.execute(
+                """update app.google_calendar_links
+                   set calendar_id = $2, last_error = null, sweep_requested_at = null
+                   where tutor_id = $1""",
+                tutor_id,
+                calendar_id,
+            )
+            today = dt.datetime.now(zone(tz_name)).date()
+            await self._requeue(conn, tutor_id, since=today, with_events=True)
+            await self._forget_events(conn, tutor_id)
+        self.kick()
+        return True
 
     # -----------------------------------------------------------------------------------------
     # Worker iteration
     # -----------------------------------------------------------------------------------------
 
     async def run_once(self) -> int:
-        """Process one batch of due outbox rows; returns the number of lessons handled."""
+        """Process one batch of due outbox rows, then the due sweeps; returns the lessons handled."""
         if not self.available:
             return 0
         async with self.db.privileged_tx() as conn:
@@ -183,14 +365,13 @@ class CalendarSync:
         by_tutor: dict[uuid.UUID, dict[uuid.UUID, list[asyncpg.Record]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        for row in claimed:
+        for row in sorted(claimed, key=lambda r: r["id"]):
             by_tutor[row["tutor_id"]][row["lesson_id"]].append(row)
 
         handled = 0
         for tutor_id, lessons in by_tutor.items():
             handled += await self._process_tutor(tutor_id, lessons)
-        for tutor_id in list(self._sweeps):
-            await self._maybe_sweep(tutor_id)
+        await self._run_sweeps()
         return handled
 
     async def _process_tutor(
@@ -198,42 +379,65 @@ class CalendarSync:
     ) -> int:
         async with self.db.privileged_tx() as conn:
             link = await conn.fetchrow(
-                "select calendar_id, status, refresh_token_ciphertext from app.google_calendar_links"
-                " where tutor_id = $1",
+                """select calendar_id, status, refresh_token_ciphertext, last_error
+                   from app.google_calendar_links where tutor_id = $1""",
                 tutor_id,
             )
         all_ids = [r["id"] for rows in lessons.values() for r in rows]
-        if link is None or link["calendar_id"] is None:
-            await self._finish(all_ids, [])  # sync was switched off: nothing to push
+        if (
+            link is None
+            or link["status"] == "disconnected"
+            or link["calendar_id"] is None
+            or link["refresh_token_ciphertext"] is None
+        ):
+            # Sync is off: nothing to push. A reconnect re-queues what changed meanwhile and its sweep
+            # removes the events of lessons deleted meanwhile.
+            await self._finish(all_ids, [])
             return 0
-        if link["status"] != "active":
-            await self._mark_revoked(tutor_id, REVOKED_MESSAGE)
+        if link["status"] != "active":  # revoked/error: wait for the tutor to reconnect
+            await self._park(all_ids, link["last_error"] or REVOKED_MESSAGE)
             return 0
+        calendar_id: str = link["calendar_id"]
         try:
             token = await self._access_token(tutor_id, link["refresh_token_ciphertext"])
         except (GoogleAuthError, TokenDecryptError):
             await self._mark_revoked(tutor_id)
             return 0
         except GoogleError as exc:
-            await self._retry(all_ids, exc.message)
+            await self._retry(all_ids, exc)
             return 0
 
         handled = 0
-        for lesson_id, rows in lessons.items():
+        items = list(lessons.items())
+        for position, (lesson_id, rows) in enumerate(items):
             latest = max(rows, key=lambda r: r["id"])
             ids = [r["id"] for r in rows]
             try:
-                await self._sync_lesson(token.token, link["calendar_id"], lesson_id, latest)
+                await self._sync_lesson(token.token, tutor_id, calendar_id, lesson_id, latest)
             except GoogleAuthError:
                 await self._mark_revoked(tutor_id)
                 return handled
             except GoogleUnauthorized as exc:
                 self._tokens.pop(tutor_id, None)
-                await self._retry(ids, exc.message)
+                await self._retry(ids, exc)
+                continue
+            except GoogleNotFound as exc:
+                # A missing event is handled inside _sync_lesson: here the calendar itself is gone.
+                remaining = [r["id"] for _, later in items[position:] for r in later]
+                try:
+                    obsolete = await self._replace_missing_calendar(tutor_id, calendar_id)
+                except (GoogleAuthError, TokenDecryptError):
+                    await self._mark_revoked(tutor_id)
+                    return handled
+                except GoogleError as recovery_exc:
+                    await self._retry(remaining, recovery_exc)  # backoff: no polling every iteration
+                    return handled
+                if obsolete:
+                    return handled  # the re-queue superseded or re-armed the claimed rows
+                await self._retry(ids, exc)
                 continue
             except GoogleError as exc:
-                logger.warning("calendar sync failed for lesson %s: %s", lesson_id, exc.message)
-                await self._retry(ids, exc.message)
+                await self._retry(ids, exc)
                 continue
             await self._finish(ids, [lesson_id], max(ids))
             handled += 1
@@ -241,13 +445,13 @@ class CalendarSync:
             async with self.db.privileged_tx() as conn:
                 await conn.execute(
                     "update app.google_calendar_links set last_synced_at = now(), last_error = null"
-                    " where tutor_id = $1",
+                    " where tutor_id = $1 and status = 'active'",
                     tutor_id,
                 )
         return handled
 
     async def _sync_lesson(
-        self, token: str, calendar_id: str, lesson_id: uuid.UUID, row: asyncpg.Record
+        self, token: str, tutor_id: uuid.UUID, calendar_id: str, lesson_id: uuid.UUID, row: asyncpg.Record
     ) -> None:
         assert self.google is not None
         async with self.db.privileged_tx() as conn:
@@ -259,8 +463,9 @@ class CalendarSync:
                    join app.students s on s.id = l.student_id
                    join app.profiles p on p.id = l.tutor_id
                    left join app.subjects sj on sj.id = l.subject_id
-                   where l.id = $1""",
+                   where l.id = $1 and l.tutor_id = $2""",
                 lesson_id,
+                tutor_id,
             )
         if row["op"] == "delete" or lesson is None:
             event_ids = [row["gcal_event_id"]] if row["gcal_event_id"] else []
@@ -275,9 +480,10 @@ class CalendarSync:
         if event_id:
             try:
                 await self.google.update_event(token, calendar_id, event_id, body)
-            except GoogleNotFound:  # deleted by hand in Google: recreate it
+            except GoogleNotFound:  # deleted by hand in Google (or the calendar is gone: see below)
                 event_id = None
         if not event_id:
+            # events.list answers 404 only when the calendar itself is missing.
             found = await self.google.find_lesson_events(token, calendar_id, str(lesson_id))
             if found:
                 event_id = found[0]
@@ -309,75 +515,171 @@ class CalendarSync:
                     up_to,
                 )
 
-    async def _retry(self, ids: list[int], message: str) -> None:
+    async def _retry(self, ids: list[int], exc: GoogleError) -> None:
+        """Count a failure: back off per RETRY_DELAYS_MINUTES, park after MAX_ATTEMPTS failures.
+
+        The stored message (shown on the lesson) is Italian; Google's text only goes to the log.
+        """
+        if not ids:
+            return
+        logger.warning(
+            "google calendar call failed (status=%s reason=%s): %s", exc.status, exc.reason, exc.message
+        )
+        text = failure_text(exc)
         async with self.db.privileged_tx() as conn:
-            rows = await conn.fetch(
-                """update app.calendar_outbox set attempts = attempts + 1, last_error = left($2, 1000)
-                   where id = any($1::bigint[]) returning id, attempts""",
+            await conn.execute(
+                """update app.calendar_outbox set
+                     attempts = attempts + 1,
+                     last_error = case when attempts + 1 >= $2 then $4 else $3 end,
+                     next_attempt_at = now() + make_interval(
+                       mins => ($5::int[])[least(attempts + 1, cardinality($5::int[]))])
+                   where id = any($1::bigint[])""",
                 ids,
+                MAX_ATTEMPTS,
+                text + RETRY_SUFFIX,
+                text + PARKED_SUFFIX,
+                list(RETRY_DELAYS_MINUTES),
+            )
+
+    async def _park(self, ids: list[int], message: str) -> None:
+        async with self.db.privileged_tx() as conn:
+            await conn.execute(
+                """update app.calendar_outbox set attempts = greatest(attempts, $2), last_error = $3
+                   where id = any($1::bigint[])""",
+                ids,
+                MAX_ATTEMPTS,
                 message,
             )
-            for row in rows:
-                await conn.execute(
-                    "update app.calendar_outbox set next_attempt_at = now() + $2::interval where id = $1",
-                    row["id"],
-                    backoff(row["attempts"]),
-                )
 
     # -----------------------------------------------------------------------------------------
-    # Orphan sweep (part of "Risincronizza")
+    # Orphan sweep (part of "Risincronizza", persisted in google_calendar_links.sweep_requested_at)
     # -----------------------------------------------------------------------------------------
 
-    def request_sweep(self, tutor_id: uuid.UUID) -> None:
-        self._sweeps.add(tutor_id)
-        self.kick()
+    async def _run_sweeps(self) -> None:
+        """Run the due sweeps of tutors whose outbox has drained (parked rows do not count).
 
-    async def _maybe_sweep(self, tutor_id: uuid.UUID) -> None:
-        assert self.google is not None
+        Claiming moves sweep_requested_at forward by SWEEP_RETRY: that is the lease against a second
+        process and, when the sweep fails, the delay before the next try.
+        """
         async with self.db.privileged_tx() as conn:
-            pending = await conn.fetchval(
-                """select exists(select 1 from app.calendar_outbox
-                   where tutor_id = $1 and processed_at is null and attempts < $2)""",
-                tutor_id,
+            due = await conn.fetch(
+                """update app.google_calendar_links g set sweep_requested_at = now() + $1::interval
+                   where g.tutor_id in (
+                     select l.tutor_id from app.google_calendar_links l
+                     where l.sweep_requested_at <= now() and l.status = 'active'
+                       and l.calendar_id is not null
+                       and not exists (select 1 from app.calendar_outbox o
+                                       where o.tutor_id = l.tutor_id and o.processed_at is null
+                                         and o.attempts < $2)
+                     order by l.sweep_requested_at limit $3
+                     for update skip locked)
+                   returning g.tutor_id, g.calendar_id, g.refresh_token_ciphertext, g.sweep_requested_at""",
+                SWEEP_RETRY,
                 MAX_ATTEMPTS,
+                SWEEP_BATCH,
             )
-            link = await conn.fetchrow(
-                "select calendar_id, status, refresh_token_ciphertext from app.google_calendar_links"
-                " where tutor_id = $1",
-                tutor_id,
-            )
-            known = {
-                r["gcal_event_id"]
-                for r in await conn.fetch(
-                    "select gcal_event_id from app.lessons where tutor_id = $1 and gcal_event_id is not null",
-                    tutor_id,
-                )
-            }
-        if link is None or link["status"] != "active" or link["calendar_id"] is None:
-            self._sweeps.discard(tutor_id)
-            return
-        if pending:  # wait until every lesson is in place, then remove what is left over
-            return
+        for row in due:
+            await self._sweep(row["tutor_id"], row["calendar_id"], row["refresh_token_ciphertext"], row)
+
+    async def _sweep(
+        self, tutor_id: uuid.UUID, calendar_id: str, ciphertext: str, claim: asyncpg.Record
+    ) -> None:
+        """Remove the events that are not the event of a lesson of this tutor.
+
+        Decided by `ripetiflow_lesson_id` alone: an event is deleted only when the property is missing,
+        does not name a lesson of this tutor, or the lesson already has another event (duplicate). An
+        event of an existing lesson whose stored event id is empty or stale is adopted (the id is
+        written back), so past lessons never lose their event.
+        """
+        assert self.google is not None
         try:
-            token = await self._access_token(tutor_id, link["refresh_token_ciphertext"])
-            for event_id, _lesson in await self.google.list_events(token.token, link["calendar_id"]):
-                if event_id not in known:
-                    await self.google.delete_event(token.token, link["calendar_id"], event_id)
+            token = await self._access_token(tutor_id, ciphertext)
+            events = await self.google.list_events(token.token, calendar_id)
         except (GoogleAuthError, TokenDecryptError):
             await self._mark_revoked(tutor_id)
-        except GoogleError as exc:
-            logger.warning("orphan sweep failed for tutor %s: %s", tutor_id, exc.message)
             return
-        self._sweeps.discard(tutor_id)
+        except GoogleNotFound:
+            try:
+                await self._replace_missing_calendar(tutor_id, calendar_id)
+            except (GoogleAuthError, TokenDecryptError):
+                await self._mark_revoked(tutor_id)
+            except GoogleError as exc:
+                logger.warning("calendar recovery for tutor %s failed: %s", tutor_id, exc.message)
+            return  # a replaced calendar has nothing to sweep; otherwise retried after the lease
+        except GoogleError as exc:
+            logger.warning("orphan sweep for tutor %s failed: %s", tutor_id, exc.message)
+            return
+
+        candidates = {lid for _, prop in events if (lid := _lesson_uuid(prop)) is not None}
+        async with self.db.privileged_tx() as conn:
+            current: dict[uuid.UUID, str | None] = {
+                r["id"]: r["gcal_event_id"]
+                for r in await conn.fetch(
+                    "select id, gcal_event_id from app.lessons where tutor_id = $1 and id = any($2::uuid[])",
+                    tutor_id,
+                    list(candidates),
+                )
+            }
+        by_lesson: dict[uuid.UUID, list[str]] = defaultdict(list)
+        to_delete: list[str] = []
+        for event_id, prop in events:
+            lesson_id = _lesson_uuid(prop)
+            if lesson_id is None or lesson_id not in current:
+                to_delete.append(event_id)
+            else:
+                by_lesson[lesson_id].append(event_id)
+        adopt: list[tuple[uuid.UUID, str, str | None]] = []
+        for lesson_id, event_ids in by_lesson.items():
+            linked = current[lesson_id]
+            keep = linked if linked in event_ids else event_ids[0]
+            if keep != linked:
+                adopt.append((lesson_id, keep, linked))
+            to_delete.extend(e for e in event_ids if e != keep)
+
+        if adopt:
+            async with self.db.privileged_tx() as conn:
+                for lesson_id, event_id, linked in adopt:
+                    await conn.execute(
+                        """update app.lessons set gcal_event_id = $3
+                           where id = $1 and tutor_id = $2 and gcal_event_id is not distinct from $4""",
+                        lesson_id,
+                        tutor_id,
+                        event_id,
+                        linked,
+                    )
+        try:
+            for event_id in to_delete:
+                await self.google.delete_event(token.token, calendar_id, event_id)
+        except GoogleAuthError:
+            await self._mark_revoked(tutor_id)
+            return
+        except GoogleError as exc:
+            logger.warning("orphan sweep for tutor %s failed: %s", tutor_id, exc.message)
+            return
+        async with self.db.privileged_tx() as conn:
+            # Only the request we claimed: a newer "Risincronizza" keeps its own.
+            await conn.execute(
+                """update app.google_calendar_links set sweep_requested_at = null
+                   where tutor_id = $1 and sweep_requested_at = $2""",
+                tutor_id,
+                claim["sweep_requested_at"],
+            )
+        if to_delete or adopt:
+            logger.info(
+                "orphan sweep for tutor %s: %d deleted, %d adopted", tutor_id, len(to_delete), len(adopt)
+            )
 
     # -----------------------------------------------------------------------------------------
     # API operations
     # -----------------------------------------------------------------------------------------
 
     async def status(self, conn: Conn) -> CalendarStatus:
+        # A disconnected link is the backend's memory of the calendar: for the tutor it does not exist
+        # (RLS hides it too).
         row = await conn.fetchrow(
             """select google_email, calendar_id, status, last_synced_at, last_error
-               from app.google_calendar_links where tutor_id = (select auth.uid())"""
+               from app.google_calendar_links
+               where tutor_id = (select auth.uid()) and status <> 'disconnected'"""
         )
         connected, pending, errors = await calendar_counts(conn)
         return CalendarStatus(
@@ -398,37 +700,53 @@ class CalendarSync:
         return self.google, self.cipher
 
     async def connect(self, user: CurrentUser, refresh_token: str) -> CalendarStatus:
+        """Store the token, re-use (or create) the calendar and queue the lessons to push.
+
+        Queued: lessons from today on, plus lessons changed while sync was not active (changed after
+        their last push or, never pushed, after the previous connection). Pending rows are re-armed.
+        Re-using the calendar after a pause also requests an orphan sweep, which removes the events of
+        lessons deleted meanwhile. A new calendar makes the stored event ids meaningless: they are
+        cleared, so the worker creates the events again (all the lessons that had one when the old
+        calendar was deleted by hand in Google).
+        """
         google, cipher = self._require_available()
         try:
             token = await google.refresh_access_token(refresh_token)
         except GoogleAuthError as exc:
-            raise invalid(
-                "Google non ha accettato l'autorizzazione: riprova a collegare il calendario.",
-                "provider_refresh_token",
-            ) from exc
+            raise invalid(AUTH_REFUSED, TOKEN_FIELD) from exc
         except GoogleError as exc:
-            raise ApiError("upstream_error", "Google Calendar non risponde. Riprova tra poco.") from exc
+            logger.warning("google token refresh failed on connect: %s", exc.message)
+            raise ApiError("upstream_error", GOOGLE_DOWN) from exc
+        # Google's granular consent lets the user untick the calendar permission.
+        scopes = token.scope.split()
+        if CALENDAR_SCOPE not in scopes:
+            raise invalid(SCOPE_MISSING, TOKEN_FIELD)
 
         async with self.db.user_tx(user) as conn:
             clock = await tutor_clock(conn)
-        async with self.db.privileged_tx() as conn:
-            previous = await conn.fetchval(
-                "select calendar_id from app.google_calendar_links where tutor_id = $1", user.id
+        async with self._tutor_lock(user.id) as conn:
+            previous = await conn.fetchrow(
+                "select calendar_id, status, connected_at from app.google_calendar_links where tutor_id = $1",
+                user.id,
             )
-        try:
-            calendar_id = None
-            if previous and await google.calendar_exists(token.token, previous):
-                calendar_id = previous
-            if calendar_id is None:
-                calendar_id = await google.find_calendar(token.token, CALENDAR_SUMMARY)
-            if calendar_id is None:
-                calendar_id = await google.create_calendar(token.token, CALENDAR_SUMMARY, clock.timezone)
-            google_email = await google.user_email(token.token) or user.email
-        except GoogleError as exc:
-            raise ApiError("upstream_error", "Non è stato possibile creare il calendario su Google.") from exc
+            try:
+                calendar_id: str | None = None
+                if (
+                    previous is not None
+                    and previous["calendar_id"]
+                    and await google.calendar_exists(token.token, previous["calendar_id"])
+                ):
+                    calendar_id = previous["calendar_id"]
+                reused = calendar_id is not None
+                if calendar_id is None:
+                    calendar_id = await google.create_calendar(token.token, CALENDAR_SUMMARY, clock.timezone)
+                google_email = await google.user_email(token.token) or user.email
+            except GoogleError as exc:
+                logger.warning("google calendar setup failed for %s: %s", user.id, exc.message)
+                if exc.insufficient_scope:
+                    raise invalid(SCOPE_MISSING, TOKEN_FIELD) from exc
+                raise ApiError("upstream_error", CREATE_FAILED) from exc
 
-        scopes = token.scope.split() if token.scope else [CALENDAR_SCOPE]
-        async with self.db.privileged_tx() as conn:
             await conn.execute(
                 """insert into app.google_calendar_links
                      (tutor_id, google_email, calendar_id, refresh_token_ciphertext, scopes, status,
@@ -444,80 +762,146 @@ class CalendarSync:
                 cipher.encrypt(refresh_token),
                 scopes,
             )
-            # Event ids may belong to another calendar: forget them; the worker re-adopts existing
-            # events through the lesson-id property, so nothing is duplicated.
-            await conn.execute(
-                """update app.lessons set gcal_event_id = null, gcal_synced_at = null
-                   where tutor_id = $1 and gcal_event_id is not null""",
+            if not reused:
+                await conn.execute(
+                    "update app.google_calendar_links set sweep_requested_at = null where tutor_id = $1",
+                    user.id,
+                )
+            elif previous is not None and previous["status"] != "active":
+                await conn.execute(
+                    "update app.google_calendar_links set sweep_requested_at = now() where tutor_id = $1",
+                    user.id,
+                )
+            # A calendar id that no longer exists in Google was deleted by hand (Scollega with
+            # remove_calendar clears the id): restore every event it had, like the worker recovery.
+            lost_calendar = not reused and previous is not None and previous["calendar_id"] is not None
+            await self._requeue(
+                conn,
                 user.id,
+                since=clock.today,
+                changed_after=previous["connected_at"] if previous is not None else None,
+                with_events=lost_calendar,
             )
-            await self._enqueue(conn, user.id, clock.today)
+            if not reused:
+                await self._forget_events(conn, user.id)
         self._tokens[user.id] = token
         self.kick()
         async with self.db.user_tx(user) as conn:
             return await self.status(conn)
 
-    async def _enqueue(self, conn: Conn, tutor_id: uuid.UUID, since: dt.date | None) -> int:
-        await conn.execute(
-            "update app.calendar_outbox set processed_at = now()"
-            " where tutor_id = $1 and processed_at is null",
-            tutor_id,
-        )
-        result = await conn.execute(
-            """insert into app.calendar_outbox (tutor_id, lesson_id, op, gcal_event_id)
-               select tutor_id, id, 'upsert', gcal_event_id from app.lessons
-               where tutor_id = $1 and ($2::date is null or lesson_date >= $2)
-               order by lesson_date, start_time""",
-            tutor_id,
-            since,
-        )
-        return int(result.split()[-1])
-
     async def resync(self, user: CurrentUser, scope: Literal["upcoming", "all"]) -> int:
-        self._require_available()
+        """Re-queue the lessons in scope and request the orphan sweep (D-31).
+
+        A calendar deleted by hand in Google is recreated here, with every lesson that had an event.
+        """
+        google, _ = self._require_available()
         async with self.db.user_tx(user) as conn:
             clock = await tutor_clock(conn)
-            active = await conn.fetchval(
-                """select exists(select 1 from app.google_calendar_links
-                   where tutor_id = (select auth.uid()) and status = 'active')"""
-            )
-        if not active:
-            raise conflict("Collega prima Google Calendar dalle Impostazioni.")
-        async with self.db.privileged_tx() as conn:
-            queued = await self._enqueue(conn, user.id, clock.today if scope == "upcoming" else None)
-        self.request_sweep(user.id)
+        since = clock.today if scope == "upcoming" else None
+        try:
+            async with self._tutor_lock(user.id) as conn:
+                link = await conn.fetchrow(
+                    "select calendar_id, status, refresh_token_ciphertext from app.google_calendar_links"
+                    " where tutor_id = $1",
+                    user.id,
+                )
+                if (
+                    link is None
+                    or link["status"] == "disconnected"
+                    or link["calendar_id"] is None
+                    or link["refresh_token_ciphertext"] is None
+                ):
+                    raise conflict(NOT_CONNECTED)
+                if link["status"] != "active":
+                    raise conflict(REVOKED_MESSAGE)
+                token = await self._access_token(user.id, link["refresh_token_ciphertext"])
+                if await google.calendar_exists(token.token, link["calendar_id"]):
+                    queued = await self._requeue(conn, user.id, since=since)
+                    await conn.execute(
+                        "update app.google_calendar_links set sweep_requested_at = now() where tutor_id = $1",
+                        user.id,
+                    )
+                else:
+                    calendar_id = await google.create_calendar(token.token, CALENDAR_SUMMARY, clock.timezone)
+                    logger.warning(
+                        "calendar %s of tutor %s no longer exists in Google: recreated as %s",
+                        link["calendar_id"],
+                        user.id,
+                        calendar_id,
+                    )
+                    await conn.execute(
+                        """update app.google_calendar_links
+                           set calendar_id = $2, last_error = null, sweep_requested_at = null
+                           where tutor_id = $1""",
+                        user.id,
+                        calendar_id,
+                    )
+                    queued = await self._requeue(conn, user.id, since=since, with_events=True)
+                    await self._forget_events(conn, user.id)
+        except (GoogleAuthError, TokenDecryptError) as exc:
+            await self._mark_revoked(user.id)
+            raise conflict(REVOKED_MESSAGE) from exc
+        except GoogleError as exc:
+            logger.warning("resync for %s failed: %s", user.id, exc.message)
+            raise ApiError("upstream_error", GOOGLE_DOWN) from exc
+        self.kick()
         return queued
 
     async def disconnect(self, user: CurrentUser, remove_calendar: bool) -> None:
-        async with self.db.privileged_tx() as conn:
+        """Scollega: revoke and erase the token; keep the calendar id for a later reconnect.
+
+        With remove_calendar the calendar is deleted first. If that fails for a transient reason the
+        endpoint answers 502 and nothing changes (token not revoked, link still active), so the tutor
+        can simply retry. In every other case the revoke is attempted once the token is decrypted, and
+        the link is switched off even if Google does not answer.
+        """
+        async with self._tutor_lock(user.id) as conn:
             link = await conn.fetchrow(
-                "select calendar_id, refresh_token_ciphertext from app.google_calendar_links"
+                "select calendar_id, status, refresh_token_ciphertext from app.google_calendar_links"
                 " where tutor_id = $1",
                 user.id,
             )
-        if link is None:
-            return
-        if self.google is not None and self.cipher is not None:
-            try:
-                refresh_token = self.cipher.decrypt(link["refresh_token_ciphertext"])
+            if link is None or link["status"] == "disconnected":
+                return
+            refresh_token = self._decrypt(user.id, link["refresh_token_ciphertext"])
+            calendar_removed = False
+            if refresh_token is not None and self.google is not None:
                 if remove_calendar and link["calendar_id"]:
-                    token = await self.google.refresh_access_token(refresh_token)
-                    await self.google.delete_calendar(token.token, link["calendar_id"])
-                await self.google.revoke(refresh_token)
-            except (GoogleError, TokenDecryptError) as exc:
-                # The local link is removed anyway: the user asked to stop syncing.
-                logger.warning("google disconnect for %s incomplete: %s", user.id, exc)
-        self._tokens.pop(user.id, None)
-        self._sweeps.discard(user.id)
-        async with self.db.privileged_tx() as conn:
-            await conn.execute("delete from app.google_calendar_links where tutor_id = $1", user.id)
+                    try:
+                        token = await self.google.refresh_access_token(refresh_token)
+                        await self.google.delete_calendar(token.token, link["calendar_id"])
+                        calendar_removed = True
+                    except GoogleAuthError as exc:
+                        # The grant is already gone: the app can no longer delete the calendar.
+                        logger.warning("calendar of %s not deleted, token refused: %s", user.id, exc.message)
+                    except GoogleError as exc:
+                        logger.warning("calendar of %s not deleted: %s", user.id, exc.message)
+                        raise ApiError("upstream_error", DELETE_FAILED) from exc
+                try:
+                    await self.google.revoke(refresh_token)
+                except GoogleError as exc:
+                    logger.warning("google token revoke for %s failed: %s", user.id, exc.message)
+            await conn.execute(
+                """update app.google_calendar_links set
+                     status = 'disconnected', refresh_token_ciphertext = null, last_error = null,
+                     sweep_requested_at = null,
+                     calendar_id = case when $2 then null else calendar_id end
+                   where tutor_id = $1""",
+                user.id,
+                calendar_removed,
+            )
             await conn.execute(
                 "update app.calendar_outbox set processed_at = now()"
                 " where tutor_id = $1 and processed_at is null",
                 user.id,
             )
-            await conn.execute(
-                """update app.lessons set gcal_event_id = null, gcal_synced_at = null
-                   where tutor_id = $1 and gcal_event_id is not null""",
-                user.id,
-            )
+        self._tokens.pop(user.id, None)
+
+    def _decrypt(self, tutor_id: uuid.UUID, ciphertext: str | None) -> str | None:
+        if ciphertext is None or self.cipher is None:
+            return None
+        try:
+            return self.cipher.decrypt(ciphertext)
+        except TokenDecryptError:
+            logger.warning("refresh token of %s cannot be decrypted: it cannot be revoked", tutor_id)
+            return None

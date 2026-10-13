@@ -55,9 +55,20 @@ PUBLIC_APP_URL=https://<tuo-dominio>
 
 ## 5. Sincronizzazione monodirezionale
 
-- L'app crea in Google il calendario **"RipetiFlow"** e scrive solo lì.
+- L'app crea in Google il calendario **"RipetiFlow"** e scrive solo lì (con `calendar.app.created` non
+  vede gli altri calendari, nemmeno l'elenco: per ritrovare il suo calendario usa l'id salvato).
 - Ogni lezione → un evento: titolo `Materia · Nome Studente`, orari nel fuso del profilo,
   descrizione con argomento e link alla scheda. **Le note private non vengono inviate.**
 - Modifiche fatte direttamente su Google **non** tornano nel gestionale; "Risincronizza" in
-  Impostazioni ripristina gli eventi com'erano nel gestionale.
-- "Scollega" revoca il token; opzionalmente elimina il calendario "RipetiFlow" da Google.
+  Impostazioni ripristina gli eventi com'erano nel gestionale, ricrea quelli mancanti ed elimina quelli
+  estranei (senza una lezione corrispondente, o doppioni). Gli eventi delle lezioni passate restano.
+- Se al consenso Google l'utente toglie la spunta al permesso Calendar, "Collega" risponde con un
+  messaggio che chiede di riprovare lasciandola selezionata.
+- Se il calendario "RipetiFlow" viene eliminato a mano da Google, l'app ne crea uno nuovo da sola e ci
+  rimette gli eventi.
+- Token scaduto o revocato (in *Testing* ogni 7 giorni, vedi §4): il collegamento passa a `revoked`; al
+  nuovo "Collega" lo stesso calendario viene riusato e le modifiche fatte nel frattempo vengono inviate.
+- "Scollega" revoca il token e lo cancella; il calendario resta su Google e un nuovo "Collega" lo
+  riusa (nessun doppione). Con "elimina anche il calendario" il calendario viene cancellato da Google;
+  se Google in quel momento non risponde, il collegamento resta attivo e si può riprovare. Se il token
+  era già scaduto l'app non può più eliminarlo: va tolto a mano da Google Calendar.

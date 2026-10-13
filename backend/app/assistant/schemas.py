@@ -91,7 +91,7 @@ class AssistantReply(BaseModel):
 
 
 # ---------------------------------------------------------------------------------------------
-# Model output (validated with Pydantic; anything else becomes a standard refusal, D-42)
+# Model output (validated with Pydantic; anything else gets a fixed "riprova" text, docs/06 §4)
 # ---------------------------------------------------------------------------------------------
 
 

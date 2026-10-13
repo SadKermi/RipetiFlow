@@ -60,9 +60,16 @@ test-backend: ## Backend tests (pytest on a real Postgres, see TEST_DATABASE_URL
 test-frontend: ## Frontend unit tests (Vitest)
 	$(FRONTEND) npm test -- --run
 
+E2E_DB      ?= ripetiflow_e2e
+
 .PHONY: e2e
-e2e: ## Playwright end-to-end tests (starts backend in demo mode + frontend)
-	$(FRONTEND) npm run e2e
+e2e: ## Playwright E2E on a fresh "ripetiflow_e2e" DB (starts backend in demo mode + Vite)
+	$(MAKE) --no-print-directory db-reset DEV_DB=$(E2E_DB)
+	$(FRONTEND) E2E_DATABASE_URL="$(patsubst %/postgres,%/$(E2E_DB),$(PG_URL))" npm run e2e
+
+.PHONY: gen-api
+gen-api: ## Regenerate the frontend API types from the FastAPI app (no server needed)
+	$(FRONTEND) npm run gen:api
 
 .PHONY: test
 test: db-test test-backend ## All tests that need no browser (SQL + backend + frontend unit)
@@ -71,7 +78,7 @@ test: db-test test-backend ## All tests that need no browser (SQL + backend + fr
 .PHONY: lint
 lint: ## Lint, format check and type check (backend + frontend)
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run mypy app
-	@if [ -f frontend/package.json ]; then $(FRONTEND) npm run lint && npm run typecheck; fi
+	@if [ -f frontend/package.json ]; then $(FRONTEND) npm run lint && npm run format:check && npm run typecheck; fi
 
 .PHONY: format
 format: ## Auto-format backend and frontend

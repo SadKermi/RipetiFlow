@@ -95,6 +95,43 @@ Il backend **ricalcola** tariffa e importo delle bozze di lezione dal database (
 decide i prezzi), verifica che `student_id`/`subject_id` appartengano all'utente e aggiunge gli
 avvisi (duplicati, data futura, orari sovrapposti). Bozze non valide vengono scartate con un avviso.
 
+### Guardrail nel codice (`backend/app/assistant/`)
+- **Importi** (D-42). Ogni importo con simbolo di valuta (`45,00 €`, `€ 50`, `30 euro`) nella
+  risposta o in una bozza di messaggio deve venire da una fonte ammessa: i risultati degli strumenti
+  di questa richiesta, un numero scritto dall'utente in qualunque turno (letto in modo tollerante:
+  "50", "37,50", "cinquanta"), un turno precedente di Matita nella stessa conversazione, le bozze di
+  lezione (importi ricalcolati) e le bozze di pagamento con importo verificato. Il testo dentro i dati
+  (es. note dello studente) non è mai una fonte. Se un importo non torna: la **risposta** viene
+  sostituita da un testo fisso ("Non sono riuscito a verificare sul registro gli importi…"), la
+  **bozza di messaggio** viene scartata (citata nella nota), la **bozza di pagamento** resta con
+  l'avviso "Importo non indicato nel messaggio: verificalo." (l'utente può averlo detto in una forma
+  che il controllo non legge).
+- **Duplicati tra bozze** della stessa risposta: "Duplica un'altra bozza di questa risposta." e
+  "Si sovrappone a un'altra bozza (…)", oltre ai controlli sulle righe già nel registro.
+- **Bozze in eccesso** (oltre 5) e bozze non valide: scartate, ognuna contata nella nota finale
+  ("Nota: ho scartato 2 bozze (…)"). Risposta + nota non superano mai i 2000 caratteri, così la
+  risposta può tornare come turno `assistant` nella richiesta successiva.
+- **Output non valido** (JSON assente, troncato o fuori schema): risposta fissa "Non sono riuscito a
+  preparare una risposta affidabile. Riprova con una richiesta più semplice…" con **`refused: false`**
+  (la richiesta può essere in ambito: l'interfaccia mostra lo stato "Non capito", non "Fuori ambito").
+  `refused: true` è riservato alla risposta di rifiuto fissa del §3 (richiesta fuori ambito o rifiuto
+  di sicurezza del provider).
+- **Conversazione**: i turni `assistant` iniziali (es. un saluto mostrato dall'interfaccia) vengono
+  ignorati prima di chiamare il modello; l'ultimo turno deve essere dell'utente.
+- **Limiti del ciclo**: massimo 6 giri di strumenti e 8 chiamate per giro (le chiamate in più ricevono
+  un errore e non vengono eseguite); tempo massimo complessivo della richiesta
+  `ASSISTANT_TOTAL_TIMEOUT_SECONDS` (default 60 s, oltre a `ASSISTANT_TIMEOUT_SECONDS` per singola
+  chiamata) → 502 `upstream_error`.
+- **Limite giornaliero**: il giorno del contatore è quello di **Europe/Rome** per tutti, non il fuso
+  del profilo (che l'utente può cambiare con `PATCH /me`): si azzera a mezzanotte italiana.
+- **Log d'uso**: token e costo stimato vengono registrati anche se la richiesta fallisce o scade
+  (contano le chiamate già fatte), incluse letture e scritture della cache del prompt. Il prezzo di
+  uno snapshot datato (`claude-haiku-4-5-20251001`) è quello dell'alias; un modello senza prezzo in
+  `ASSISTANT_PRICES` viene segnalato nei log e registrato a costo 0.
+- **Risposte troncate**: `stop_reason` diverso da `end_turn`/`tool_use` (Anthropic) o `status:
+  incomplete` (OpenAI) viene registrato nei log; `ASSISTANT_MAX_OUTPUT_TOKENS` (default 8000) lascia
+  spazio al ragionamento dei modelli che "pensano" oltre alla risposta JSON.
+
 ## 5. Modello e costi
 
 Livello provider-agnostico (`backend/app/assistant/providers/`):
@@ -110,9 +147,15 @@ Il system prompt è stabile e in testa alla richiesta per sfruttare il prompt ca
 
 ## 6. Test
 
-- **Unit**: validazione bozze, arricchimento, rifiuti, limite giornaliero, con un provider finto
-  (`FakeProvider`) che riproduce sequenze di tool call predefinite.
-- **Eval di comportamento** (`backend/tests/assistant_eval/cases.yaml`): 40 casi in italiano
+- **Unit** (`backend/tests/test_assistant.py`): validazione bozze, arricchimento, controllo degli
+  importi, rifiuti, limite giornaliero, tempo massimo, limiti del ciclo, strumenti in sola lettura,
+  prompt injection, via HTTP con un provider finto (`FakeProvider`) che riproduce sequenze di tool
+  call predefinite; più i due adapter (OpenAI, Anthropic) con trasporto HTTP simulato (forma delle
+  richieste e lettura delle risposte).
+- **Eval di comportamento** (`backend/tests/assistant_eval/cases.yaml`): 44 casi in italiano
   (registrazioni, domande, messaggi, ambiguità, prompt injection, richieste fuori ambito) con
   criteri verificabili in codice (tipo e campi delle bozze, `refused`). Si eseguono contro il
-  modello reale solo su richiesta (`make eval-assistant`, richiede la chiave API: costo < $0,05).
+  modello reale solo su richiesta (`make eval-assistant`, cioè
+  `uv run python -m tests.assistant_eval.run [--only id,…] [--model …]`, richiede la chiave API e un
+  Postgres locale: costo < $0,05). Stampano il punteggio per caso e il costo stimato; non fanno parte
+  di `pytest`.

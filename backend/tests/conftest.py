@@ -144,9 +144,7 @@ class User:
 
 
 @pytest.fixture
-def make_user(
-    db: asyncpg.Pool[asyncpg.Record], signing_key: SigningKey
-) -> Callable[..., Awaitable[User]]:
+def make_user(db: asyncpg.Pool[asyncpg.Record], signing_key: SigningKey) -> Callable[..., Awaitable[User]]:
     """Create a tutor in auth.users (the trigger creates profile + default subjects)."""
 
     async def factory(name: str = "Tutor", timezone: str | None = None) -> User:
@@ -189,9 +187,7 @@ AppFactory = Callable[..., Awaitable[httpx.AsyncClient]]
 
 
 @pytest.fixture
-async def app_client(
-    database_url: str, signing_key: SigningKey
-) -> AsyncIterator[AppFactory]:
+async def app_client(database_url: str, signing_key: SigningKey) -> AsyncIterator[AppFactory]:
     """`await app_client(**settings_overrides, google=..., assistant_provider=...)` -> AsyncClient.
 
     The app's lifespan runs for the duration of the test; its TokenVerifier is swapped for one that

@@ -56,9 +56,7 @@ def _usage(response: Response) -> Usage:
 
 def _final_message(response: Response) -> tuple[str, bool]:
     """(text, refused) of the last non-commentary output message."""
-    messages = [
-        item for item in response.output if item.type == "message" and item.phase != "commentary"
-    ]
+    messages = [item for item in response.output if item.type == "message" and item.phase != "commentary"]
     if not messages:
         return "", False
     content = messages[-1].content

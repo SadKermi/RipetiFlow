@@ -176,9 +176,9 @@ quella dello storico (sconto, lezione doppia) non viene mai modificata. Il datab
 | Metodo | Percorso | Body | Risposta |
 |---|---|---|---|
 | GET | `/integrations/google-calendar` | — | `CalendarStatus` |
-| POST | `/integrations/google-calendar/connect` | `{provider_refresh_token, provider_token?}` | `CalendarStatus` — salva il token cifrato, crea (o ritrova) il calendario "RipetiFlow", accoda la sync delle lezioni da oggi in poi |
-| POST | `/integrations/google-calendar/resync` | `{scope: "upcoming"\|"all"}` | `{queued: int}` 202 — riallinea tutto (ricrea mancanti, sovrascrive modifiche manuali, rimuove orfani) |
-| DELETE | `/integrations/google-calendar?remove_calendar=false` | — | 204 — revoca il token; se `remove_calendar=true` elimina anche il calendario "RipetiFlow" |
+| POST | `/integrations/google-calendar/connect` | `{provider_refresh_token, provider_token?}` | `CalendarStatus` — salva il token cifrato, riusa il calendario "RipetiFlow" già collegato in precedenza (o lo crea), accoda la sync delle lezioni da oggi in poi e di quelle cambiate mentre il link non era attivo. 422 `validation_error` su `provider_refresh_token` se Google rifiuta il token o se manca il permesso Calendar |
+| POST | `/integrations/google-calendar/resync` | `{scope: "upcoming"\|"all"}` | `{queued: int}` 202 — riallinea tutto (ricrea mancanti, sovrascrive modifiche manuali, rimuove orfani; ricrea il calendario se è stato eliminato). 409 se non collegato o revocato |
+| DELETE | `/integrations/google-calendar?remove_calendar=false` | — | 204 — revoca il token (poi `GET` risponde `connected=false`, `status=null`); se `remove_calendar=true` elimina anche il calendario "RipetiFlow" (se Google non risponde: 502 `upstream_error` e il collegamento resta attivo) |
 
 ## Assistente Matita (D-40…D-42)
 
@@ -202,8 +202,14 @@ Response: {reply: string,                                               // testo
   `POST /payments` con `X-RipetiFlow-Source: assistant`.
 - `warnings`: es. "Esiste già una lezione con Luca il 06/10 alle 15:00" (controllo duplicati),
   "Data nel futuro: la lezione sarà programmata".
-- 429 `rate_limited` oltre il limite giornaliero (default 60 richieste/utente/giorno).
+- 429 `rate_limited` oltre il limite giornaliero (default 60 richieste/utente/giorno; il giorno è
+  quello di Europe/Rome, indipendente dal fuso del profilo).
+- 502 `upstream_error` se il provider fallisce o la richiesta supera il tempo massimo
+  (`ASSISTANT_TOTAL_TIMEOUT_SECONDS`, default 60 s).
 - 503 se nessun provider è configurato (`assistant_available=false` in `/public/config`).
+- Output del modello non valido → `reply` fisso "Non sono riuscito a preparare una risposta
+  affidabile…" con `refused: false` (dettagli in docs/06 §4). I turni `assistant` iniziali vengono
+  ignorati.
 
 ## Solo sviluppo (`APP_ENV=development` **e** `DEV_AUTH=1`)
 
