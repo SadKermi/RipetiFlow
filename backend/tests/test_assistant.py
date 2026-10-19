@@ -598,6 +598,7 @@ async def test_follow_up_turn_may_repeat_amounts_from_earlier_turns(
         pytest.param("Giulia ti deve 1 030,00 €.", id="space-thousands"),
         pytest.param("Giulia ti deve 1 030,00 €.", id="no-break-space-thousands"),
         pytest.param("Giulia ti deve 999,00.", id="no-currency"),
+        pytest.param("Giulia ti deve ancora 999.", id="after-a-money-word"),
         pytest.param("Giulia ti deve novecentonovantanove euro.", id="in-words"),
         pytest.param("Giulia ti deve tra 25 e 30 €.", id="range"),
         pytest.param("Giulia ti deve 9​30,00 €.", id="zero-width-space"),
@@ -605,13 +606,17 @@ async def test_follow_up_turn_may_repeat_amounts_from_earlier_turns(
         pytest.param("Giulia ti deve 30.30,00 €.", id="unreadable"),
     ],
 )
-async def test_amounts_in_any_spelling_are_checked(app_client: AppFactory, make_user: Any, reply: str) -> None:
+async def test_amounts_in_any_spelling_are_checked(
+    app_client: AppFactory, make_user: Any, reply: str
+) -> None:
     s = await giulia_with_debt(app_client, make_user, fake(find(), final(output(reply))))
     body = await ok(await ask(s.client, s.user, "quanto mi deve Giulia?"))
     assert body["reply"] == UNVERIFIED_NUMBERS_TEXT
 
 
-async def test_verified_amounts_may_be_written_in_any_spelling(app_client: AppFactory, make_user: Any) -> None:
+async def test_verified_amounts_may_be_written_in_any_spelling(
+    app_client: AppFactory, make_user: Any
+) -> None:
     reply = "Giulia ti deve 30,00 € (€30, EUR 30, 30 euro, trenta euro, 30.00 €, 30,00); 1 h di lezione."
     s = await giulia_with_debt(app_client, make_user, fake(find(), final(output(reply))))
     body = await ok(await ask(s.client, s.user, "quanto mi deve Giulia?"))
@@ -693,14 +698,20 @@ async def test_clock_times_and_dates_the_user_wrote_are_not_amounts(
     assert body["reply"] == UNVERIFIED_NUMBERS_TEXT
 
 
-async def test_numbers_the_user_wrote_in_words_may_be_repeated(app_client: AppFactory, make_user: Any) -> None:
-    reply = "Ho preparato il pagamento di 30,00 € (trenta euro): lezione di un'ora e mezza, 50 minuti di ripasso."
+async def test_numbers_the_user_wrote_in_words_may_be_repeated(
+    app_client: AppFactory, make_user: Any
+) -> None:
+    reply = (
+        "Ho preparato il pagamento di 30,00 € (trenta euro): lezione di un'ora e mezza, 50 minuti di ripasso."
+    )
     provider = fake(final(output("placeholder")))
     s = await giulia_with_debt(app_client, make_user, provider)
     provider.steps[-1] = final(output(reply, payment(s.giulia["id"], 3000)))
     body = await ok(
         await ask(
-            s.client, s.user, "Giulia mi ha dato trenta euro; ieri un'ora e mezza, cinquanta minuti di ripasso"
+            s.client,
+            s.user,
+            "Giulia mi ha dato trenta euro; ieri un'ora e mezza, cinquanta minuti di ripasso",
         )
     )
     assert body["reply"] == reply
@@ -708,7 +719,9 @@ async def test_numbers_the_user_wrote_in_words_may_be_repeated(app_client: AppFa
     assert draft["warnings"] == []
 
 
-async def test_follow_up_may_repeat_durations_from_earlier_turns(app_client: AppFactory, make_user: Any) -> None:
+async def test_follow_up_may_repeat_durations_from_earlier_turns(
+    app_client: AppFactory, make_user: Any
+) -> None:
     text = "Gentile signora, ieri Giulia ha fatto 2 ore e mezza di lezione."
     provider = fake(final(output("Ecco il messaggio (2 h 30 min).", message(text))))
     s = await giulia_with_debt(app_client, make_user, provider)
@@ -746,7 +759,7 @@ async def test_unverified_numbers_in_the_free_text_of_drafts_get_a_warning(
         return output(
             "Ecco le bozze.",
             lesson(sid, days(-2), topic="ripasso, saldo EUR 999"),
-            lesson(sid, days(-3), notes="fatte 3 ore"),
+            lesson(sid, days(-3), notes="fatte 4 ore"),  # 3 h would be the total of the drafts
             lesson(sid, days(-4), topic="equazioni di 2 grado", notes="1 h, come al solito; 50 euro"),
             {**payment(sid, 5000), "note": "acconto su 999,00"},
             {**payment(sid, 5000, days(-1)), "note": "contanti, 50 €"},
@@ -1111,17 +1124,30 @@ async def test_tools_are_read_only_and_whitelisted(
         pytest.param("EUR 45 · Euro 12,00 · eur 7", {4500, 1200, 700}, id="currency-word-first"),
         pytest.param("45.50 € e 1,234.50 €", {4550, 123450}, id="english-separators"),
         pytest.param(
-            "1 234,00 € · 2\u00a0345,00 € · 3\u202f456,00 € · 4 567,00", {123400, 234500, 345600, 456700},
+            "1 234,00 € · 2\u00a0345,00 € · 3\u202f456,00 € · 4 567,00",
+            {123400, 234500, 345600, 456700},
             id="space-thousands",
         ),
         pytest.param("Giulia ti deve 45,00, Marco 1.234,50.", {4500, 123450}, id="two-decimals-no-currency"),
         pytest.param("trenta euro, milleduecento €, mille e duecento euro", {3000, 120000}, id="in-words"),
         pytest.param("tra 45 e 50 €, oppure 60–70 €", {4500, 5000, 6000, 7000}, id="ranges"),
+        pytest.param("45 euros, 46,- €, € 47,-", {4500, 4600, 4700}, id="other-spellings"),
+        pytest.param(
+            "ti deve 45. Il saldo di Giulia è di 46; credito: 47, ha pagato 48 e 49 €",
+            {4500, 4600, 4700, 4800, 4900},
+            id="after-a-money-word",
+        ),
+        pytest.param(
+            "deve fare 2 lezioni, ha pagato 3 volte, pagato il 06/10, saldo in pari",
+            set(),
+            id="money-words-alone",
+        ),
         pytest.param("9\u200b30,00 € e 1\u2060\u200d5,00 €", {93000, 1500}, id="invisible-characters"),
         pytest.param("４５,００ € e ⁴⁵ €", {4500}, id="compatibility-digits"),
         pytest.param("1.2345 € e 30.30,00 €", {UNREADABLE}, id="unreadable"),
         pytest.param(
-            "alle 16,30 dalle 15.00; il 06/10/2026; nel 2025 con 2 studenti; tel. 333 1234567", set(),
+            "alle 16,30 dalle 15.00; il 06/10/2026; nel 2025 con 2 studenti; tel. 333 1234567",
+            set(),
             id="clock-dates-years-counts-phones",
         ),
         pytest.param("il 33,33% delle lezioni, 1,50 ore, 2,50 km, voto 7,50/10", set(), id="units"),
@@ -1145,16 +1171,25 @@ def test_amounts_in(text: str, cents: set[int]) -> None:
         ("mezz'ora · mezza ora · trenta minuti", {30}),
         ("un quarto d'ora; tre quarti d'ora", {15, 45}),
         ("1,30 ore", {78, 90}),  # decimal hours, or "1 h 30" written with a comma
+        ("1h 30m", {90}),
+        ("1.234 minuti; 1.200 ore", {1234, 72000}),
         ("2\u200b0 ore", {1200}),
         ("alle ore 16; dalle 15:00 alle 16:30; alle 16h; il 06/10", set()),
         ("30,00 €/h, 30 € all'ora, 30 € l'ora, 30 € per un'ora, 30 €/ora", set()),
         ("Sei ora in pari; per ora nessuna lezione; e ora? l'ultima ora", set()),
         ("2 studenti, 3 lezioni, nel 2025, il 20%, 2 ore e 3 lezioni", {120}),
+        ("tra 2 e 3 ore; 4-5 h; da 30 a 45 minuti", {120, 180, 240, 300, 30, 45}),
+        ("alle 16 e 2 ore; dopo le 3 ore", {120, 180}),
         ("ottobre, orecchio, minimo, hotel, pochi minuti", set()),
     ],
 )
 def test_durations_in(text: str, minutes: set[int]) -> None:
     assert {m for d in durations_in(text) for m in d.readings} == minutes
+
+
+def test_each_end_of_a_range_is_checked() -> None:
+    allowed = Allowed(cents={5000}, minutes={45, 180})
+    assert allowed.unverified("tra 45 e 50 €; da 30 a 45 minuti; 2-3 ore") == ["45,00 €", "2 h", "30 min"]
 
 
 def test_approximate_durations_get_a_small_tolerance() -> None:

@@ -18,13 +18,15 @@ text. Text inside the data (e.g. student notes) is never a source.
 
 What is read as a number:
 - amounts in every common spelling: "45,00 €", "€45", "45 euro", "EUR 45", "45.50 €", "1.234,50 €",
-  "1,234.50 €", "1 234,00 €", "45–50 €", "tra 45 e 50 €", "trenta euro", and "45,00" (two decimals,
-  no currency) unless a unit or a clock word says otherwise ("1,50 ore", "33,33%", "alle 16,30").
+  "1,234.50 €", "1 234,00 €", "45,- €", "45–50 €", "tra 45 e 50 €", "trenta euro", "45,00" (two
+  decimals, no currency) unless a unit or a clock word says otherwise ("1,50 ore", "33,33%", "alle
+  16,30"), and a bare number right after a money word ("ti deve 45", "saldo: 45").
   An amount next to a currency marker whose separators allow no single reading ("1.2345 €",
   "30.30,00 €") is UNREADABLE and never verified;
 - durations: "2 ore", "1,5 h", "1:30 h", "1 h 30 min", "1h30", "un'ora e mezza", "tre quarti d'ora",
-  "90 minuti". One introduced by "circa", "quasi", "più di"... may round its source by up to
-  APPROX_TOLERANCE_MINUTES. A rate ("30 €/h", "30 € all'ora", "30 € per un'ora") is no duration;
+  "90 minuti", "1.234 minuti", "2-3 ore". One introduced by "circa", "quasi", "più di"... may round
+  its source by up to APPROX_TOLERANCE_MINUTES. A rate ("30 €/h", "30 € all'ora") is no duration;
+- both ends of a range ("45–50 €", "2-3 ore") are checked, each on its own;
 - never: plain counts ("2 studenti"), years, phone numbers, percentages, clock times and dates.
 Checks read text as the reader sees it: invisible format characters (zero-width spaces, joiners, bidi
 controls) are removed from every text shown and any space becomes a plain one, and compatibility forms
@@ -108,13 +110,13 @@ _EMOJI = re.compile(
 # The patterns run on `_scan(text)`: lower case, compatibility forms folded, invisible characters out.
 
 _L = r"[^\W\d_]"  # a letter, accented ones included
-_MARKER = rf"(?:€|(?<!{_L})eur(?:o|i)?(?!{_L}))"
+_MARKER = rf"(?:€|(?<!{_L})eur(?:os?|i)?(?!{_L}))"
 # A written number: digit groups joined by "." or "," ("1.234,50", "1,234.50", "45"), or by a space
 # before a group of exactly three digits ("1 234,50"). `_read_amount` decides how to read it.
 _NUM = r"\d+(?:(?:[.,]|\x20(?=\d{3}(?!\d)))\d+)*"
 _RANGE = r"(?:\s*[-–—]\s*|\s+(?:e|o|a)\s+)"  # "45–50 €", "tra 45 e 50 €", "da 45 a 50 €"
 _AMOUNT_THEN_MARKER = re.compile(
-    rf"(?<![\d.,])(?:(?P<low>{_NUM}){_RANGE})?(?P<num>{_NUM})\s*(?P<marker>{_MARKER})"
+    rf"(?<![\d.,])(?:(?P<low>{_NUM}){_RANGE})?(?P<num>{_NUM})(?:,[-–]+)?\s*(?P<marker>{_MARKER})"
 )
 _MARKER_THEN_AMOUNT = re.compile(
     rf"(?P<marker>{_MARKER})[ \t]*[:=]?[ \t]*[-+]?[ \t]*(?P<num>{_NUM})(?:\s*[-–—]\s*(?P<high>{_NUM}))?"
@@ -124,6 +126,13 @@ _MARKER_ONLY = re.compile(_MARKER)
 _BARE_AMOUNT = re.compile(
     r"(?<![\d.,])(?P<num>\d{1,3}(?:\.\d{3})+,\d{2}|\d{1,3}(?:\x20\d{3})+,\d{2}|\d+,\d{2})(?!\d|[.,]\d)"
     rf"(?!\s*(?:%|/\d|(?:ore|ora|h|minuti|minuto|min|km|kg|cm|mm|m|punti|volte|anni)(?!{_L})))"
+)
+# "ti deve 45", "saldo: 45", "il saldo di Giulia è di 45": a number right after a money word is an
+# amount, unless a word follows it ("deve 2 lezioni", "pagato 3 volte").
+_MONEY_WORD_THEN_NUMBER = re.compile(
+    rf"(?<!{_L})(?:deve|devi|debito|credito|saldo|importo|pagato|pagata|versato|incassato|maturato|"
+    rf"costa|tariffa|acconto)(?:\s+di\s+{_L}+(?:\s+{_L}+)?)?(?:\s+(?:di|da|è|ancora|pari a))*\s*:?\s*"
+    rf"(?P<num>{_NUM})(?![\d.,]*\d|\s*(?:%|/\d|:\d|{_L}))"
 )
 # ... or a clock word comes before ("alle 16,30"). Also used for "dalle 15 alle 16 a 30 €"/"alle 16h".
 _CLOCK_BEFORE = re.compile(
@@ -141,22 +150,26 @@ _ANY_NUMBER = re.compile(rf"(?<![\d.,]){_NUM}")
 _WORD = re.compile(rf"{_L}+")
 _WORD_OR_SIGN = re.compile(rf"{_L}+|\S")
 
-# Durations. Hours first ("2 ore", "1,5 h", "1:30 h", "un'ora", "due ore"), with an optional tail of
-# minutes ("30", "30 min", "e mezza", "e un quarto", "e quindici minuti"); then minutes alone.
+# Durations. Hours first ("2 ore", "1,5 h", "1:30 h", "2-3 ore", "un'ora", "due ore"), with an
+# optional tail of minutes ("30", "30 min", "e mezza", "e un quarto", "e quindici minuti"); then
+# minutes alone ("90 minuti", "30-45 min", "novanta minuti", "mezz'ora", "tre quarti d'ora").
+_THOUSANDS = r"\d{1,3}(?:\.\d{3})+"  # "1.200"
 _HOURS = re.compile(
-    rf"(?<![\d.,:/⁄])(?P<num>\d+(?:[.,:]\d{{1,2}})?)\s*(?:ore|ora|h)(?!{_L})"
-    rf"|(?<!{_L})(?P<word>{_L}+)(?:\s+|\s*'\s*)(?P<unit>ore|ora)(?!{_L})"
+    rf"(?<![\d.,:/⁄])(?:(?P<low>{_THOUSANDS}|\d+(?:[.,]\d{{1,2}})?){_RANGE})?"
+    rf"(?P<num>{_THOUSANDS}|\d+(?:[.,:]\d{{1,2}})?)\s*(?P<unit>ore|ora|h)(?!{_L})"
+    rf"|(?<!{_L})(?P<word>{_L}+)(?:\s+|\s*'\s*)(?P<word_unit>ore|ora)(?!{_L})"
 )
 _HOURS_TAIL = re.compile(
     r"\s*(?:e\s+)?(?:"
-    rf"(?P<min>\d{{1,2}})(?:\s*(?:minuti|minuto|min)(?!{_L})|(?!\s*\w))"
+    rf"(?P<min>\d{{1,2}})(?:\s*(?:minuti|minuto|min|m)(?!{_L})|(?!\s*\w))"
     rf"|(?P<half>mezz[ao])(?!{_L})"
     rf"|(?P<quarters>un|tre)\s+quart[oi](?!{_L})"
     rf"|(?P<word>{_L}+)\s+minut[oi](?!{_L})"
     ")"
 )
 _MINUTES = re.compile(
-    rf"(?<![\d.,:/⁄])(?P<num>\d+)\s*(?:minuti|minuto|min)(?!{_L})"
+    rf"(?<![\d.,:/⁄])(?:(?P<low>{_THOUSANDS}|\d+){_RANGE})?(?P<num>{_THOUSANDS}|\d+)"
+    rf"\s*(?:minuti|minuto|min)(?!{_L})"
     rf"|(?<!{_L})(?P<word>{_L}+)\s+minut[oi](?!{_L})"
     rf"|(?<!{_L})(?P<half>mezz(?:a\s*|\s*'\s*)?ora)(?!{_L})"
     rf"|(?<!{_L})(?P<quarters>un|tre)\s+quart[oi]\s+d\s*'\s*ora(?!{_L})"
@@ -283,14 +296,14 @@ def _words_before(text: str, index: int) -> int | None:
     """Value of the number words just before `index`: "trenta" → 30, "mille e duecento" → 1200."""
     total = 0
     words: list[str] = []
-    for token in reversed(_WORD_OR_SIGN.findall(text, max(0, index - 80), index)):
-        if token == "e" and words:
+    for piece in reversed(_WORD_OR_SIGN.findall(text, max(0, index - 80), index)):
+        if piece == "e" and words:
             continue
-        value = _number_word(token)
+        value = _number_word(piece)
         if value is None or value <= total:  # "trenta e cinquanta": only the last one is read
             break
         total += value
-        words.append(token)
+        words.append(piece)
     if not words or (len(words) == 1 and words[0] in _ARTICLES):  # "neanche un euro"
         return None
     return total
@@ -320,6 +333,7 @@ def amounts_in(text: str) -> set[int]:
     for match in _BARE_AMOUNT.finditer(scan):  # "45,00"
         if not _preceded_by(_CLOCK_BEFORE, scan, match.start()):
             found.add(_read_amount(match["num"]))
+    found.update(_read_amount(m["num"]) for m in _MONEY_WORD_THEN_NUMBER.finditer(scan))  # "ti deve 45"
     return found
 
 
@@ -353,6 +367,8 @@ class Duration:
 
 def _hour_readings(number: str) -> set[int]:
     """Minutes in a number of hours: "2" → 120, "1,5" → 90, "1:30" → 90, "1,30" → 78 or 90."""
+    if re.fullmatch(_THOUSANDS, number):
+        number = number.replace(".", "")
     separator = next((c for c in number if c in ".,:"), "")
     if not separator:
         return {int(number) * 60}
@@ -364,6 +380,16 @@ def _hour_readings(number: str) -> set[int]:
     if len(fraction) == 2 and int(fraction) < 60:
         readings.add(hours + int(fraction))  # "1,30" said for "1 h 30"
     return readings
+
+
+def _hours_of(match: re.Match[str]) -> set[int]:
+    if match["num"]:
+        return _hour_readings(match["num"])
+    value = _number_word(match["word"])
+    # "un'ora", "due ore"; never "sei ora" ("you are now"), "l'ora", "per ora".
+    if value is None or (match["word_unit"] == "ora" and match["word"] not in _ARTICLES):
+        return set()
+    return {value * 60}
 
 
 def _tail_minutes(tail: re.Match[str] | None) -> int | None:
@@ -378,23 +404,30 @@ def _tail_minutes(tail: re.Match[str] | None) -> int | None:
     return _number_word(tail["word"])
 
 
+def _blank(text: str, spans: list[tuple[int, int]]) -> str:
+    """`text` with every span replaced by spaces (so the other indexes keep their meaning)."""
+    chars = list(text)
+    for start, end in spans:
+        chars[start:end] = " " * (end - start)
+    return "".join(chars)
+
+
 def durations_in(text: str) -> list[Duration]:
     """Durations written in `text` (module docstring)."""
     scan = _scan(text)
     found: list[Duration] = []
-    spans: list[tuple[int, int]] = []
+
+    def add(readings: set[int], start: int) -> None:
+        if readings:
+            found.append(Duration(frozenset(readings), _preceded_by(_APPROXIMATE_BEFORE, scan, start)))
+
+    hour_spans: list[tuple[int, int]] = []
     for match in _HOURS.finditer(scan):
-        if match["num"]:
-            readings = _hour_readings(match["num"])
-        else:
-            value = _number_word(match["word"])
-            # "un'ora", "due ore"; never "sei ora" ("you are now"), "l'ora", "per ora".
-            singular_ok = match["unit"] == "ore" or match["word"] in _ARTICLES
-            readings = {value * 60} if value is not None and singular_ok else set()
         start, end = match.span()
-        # "alle 16h" is a clock time, "30 € per un'ora" a rate.
-        if _preceded_by(_CLOCK_BEFORE, scan, start) or _preceded_by(_RATE_BEFORE, scan, start):
-            continue
+        clock_before = _preceded_by(_CLOCK_BEFORE, scan, start)
+        if _preceded_by(_RATE_BEFORE, scan, start) or (match["unit"] == "h" and clock_before):
+            continue  # "30 € per un'ora" is a rate, "alle 16h" a clock time
+        readings = _hours_of(match)
         if not readings:
             continue
         tail = _HOURS_TAIL.match(scan, end)
@@ -402,20 +435,21 @@ def durations_in(text: str) -> list[Duration]:
         if tail is not None and extra is not None:
             readings = {r + extra for r in readings}
             end = tail.end()
-        spans.append((start, end))
-        found.append(Duration(frozenset(readings), _preceded_by(_APPROXIMATE_BEFORE, scan, start)))
-    for start, end in spans:  # what is read as hours is not read again as minutes
-        scan = scan[:start] + " " * (end - start) + scan[end:]
+        if match["low"] and not clock_before:  # "2-3 ore", not "alle 16 e 2 ore"
+            add(_hour_readings(match["low"]), start)
+        add(readings, start)
+        hour_spans.append((start, end))
+    scan = _blank(scan, hour_spans)  # what is read as hours is not read again as minutes
     for match in _MINUTES.finditer(scan):
-        if match["num"]:
-            minutes: int | None = int(match["num"])
+        start = match.start()
+        if match["num"]:  # each end of a range is checked on its own
+            for number in (match["low"], match["num"]):
+                add({int(number.replace(".", ""))} if number else set(), start)
         elif match["word"]:
-            minutes = _number_word(match["word"])
+            value = _number_word(match["word"])
+            add(set() if value is None else {value}, start)
         else:
-            minutes = 30 if match["half"] else _QUARTERS[match["quarters"]]
-        if minutes is not None:
-            approximate = _preceded_by(_APPROXIMATE_BEFORE, scan, match.start())
-            found.append(Duration(frozenset({minutes}), approximate))
+            add({30 if match["half"] else _QUARTERS[match["quarters"]]}, start)
     return found
 
 
