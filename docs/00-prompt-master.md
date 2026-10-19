@@ -157,8 +157,8 @@ accessibilità. Riporta solo problemi verificati, con file:riga, scenario concre
 |---|---|
 | Reverse engineering + trascrizione | ✅ |
 | Decisioni, modello dati, contratto API, design Matita | ✅ |
-| Migrazioni applicate a Supabase + test SQL | ✅ |
-| Design system | in corso |
-| Backend | in corso |
-| Frontend | da iniziare |
-| Revisione + E2E | da iniziare |
+| Migrazioni applicate a Supabase + test SQL | ✅ tranne `20261012200000_calendar_link_lifecycle` (da applicare: vedi README) |
+| Design system «Registro» v1.1 + schermate | ✅ |
+| Backend (API, worker calendario, Matita con guardrail D-42) | ✅ 592 test pytest + test SQL |
+| Frontend (SPA, Matita UI) | ✅ 595 test Vitest |
+| Revisione (audit, review avversariali codice/a11y/design) + E2E | ✅ 33 percorsi Playwright a 390 e 1440 px |

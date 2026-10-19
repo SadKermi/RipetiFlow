@@ -4,3 +4,9 @@
 @import "./tokens.css";
 
 /* Project-level additions that are not design tokens go below. */
+
+/* Page column (02 §2): up to 1200 px of content (--rf-content-max) between the side gutters, so
+   the gutters do not eat into it: at 1440 the student page has 336 + 48 + 816 px. */
+@utility max-w-page {
+  max-width: calc(var(--rf-content-max) + 2 * var(--rf-gutter));
+}

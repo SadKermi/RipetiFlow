@@ -58,7 +58,10 @@ export function problemToFormErrors<F extends string>(
 
   let form: string | null = unplaced.length > 0 ? unplaced.join(" ") : null;
   if (Object.keys(error.fieldErrors).length === 0) {
-    form = error.status >= 500 && error.code === "internal_error" ? withTryAgain(error.detail) : error.detail;
+    form =
+      error.status >= 500 && error.code === "internal_error"
+        ? withTryAgain(error.detail)
+        : error.detail;
   }
   return { fields, form };
 }

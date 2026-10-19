@@ -8,7 +8,7 @@ import {
   CloudSlashIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { Button as AriaButton } from "react-aria-components";
 import { Link } from "react-router";
 import { formatEuroAbs } from "@/lib/format";
@@ -126,20 +126,48 @@ export function RunningBalance({
   prefix?: string;
   className?: string;
 }) {
+  const layout = useLedgerLayout();
   const status = balanceStatus(cents);
   const color =
     status === "debt" ? "text-debito" : status === "credit" ? "text-credito" : "text-ink-2";
   const word = status === "debt" ? "deve" : status === "credit" ? "credito" : "in pari";
   const speech = `${prefix ? `${prefix} ` : ""}${balanceSpeech(cents, null, { short: true })}`;
+  const amount = <span className="font-money text-money tabular-nums">{formatEuroAbs(cents)}</span>;
+  const wordNode = (
+    <span className="text-[0.6875rem] font-semibold tracking-[0.05em] uppercase">{word}</span>
+  );
+  const prefixNode = prefix ? <span className="text-[0.8125rem] text-pencil">{prefix}</span> : null;
+  if (layout === "table") {
+    // The Saldo column is 136 px (02 §9.6): «DEVE 67,00 €» fits on one line, «CREDITO 66,00 €» or
+    // «sarà DEVE 20,00 €» do not, and must never run past the column. Laid out from the right, so
+    // what does not fit wraps flush right: in a row the amount keeps the row's first line (aligned
+    // with the other amounts) and the word goes under it; in a draft «sarà» goes above
+    // («sarà / DEVE 20,00 €»), so the cell still reads in order.
+    return (
+      <span className={className}>
+        <span className="sr-only">{speech}</span>
+        <span
+          aria-hidden
+          className={cx(
+            "inline-flex flex-row-reverse items-baseline gap-x-2 whitespace-nowrap",
+            prefix ? "flex-wrap-reverse" : "flex-wrap",
+            color,
+          )}
+        >
+          {amount}
+          {wordNode}
+          {prefixNode}
+        </span>
+      </span>
+    );
+  }
   return (
     <span className={cx("whitespace-nowrap", className)}>
       <span className="sr-only">{speech}</span>
       <span aria-hidden className={color}>
-        {prefix && <span className="mr-1.5 text-[0.8125rem] text-pencil">{prefix}</span>}
-        <span className="mr-2 text-[0.6875rem] font-semibold tracking-[0.05em] uppercase">
-          {word}
-        </span>
-        <span className="font-money text-money tabular-nums">{formatEuroAbs(cents)}</span>
+        {prefixNode && <span className="mr-1.5">{prefixNode}</span>}
+        {wordNode}
+        <span className="ml-2">{amount}</span>
       </span>
     </span>
   );
@@ -149,14 +177,12 @@ function DateParts({
   date,
   today,
   time,
-  timeIcon,
   layout,
   pencil = false,
 }: {
   date: string;
   today: string;
   time?: string | null;
-  timeIcon?: ReactNode;
   layout: LedgerLayout;
   /** Inside a draft: everything in graphite, inherited from the row. */
   pencil?: boolean;
@@ -166,9 +192,7 @@ function DateParts({
     return (
       <>
         <span className="block text-[0.875rem] leading-5 font-semibold">{day}</span>
-        <span
-          className={cx("block text-[0.8125rem] leading-[1.125rem]", !pencil && "text-ink-3")}
-        >
+        <span className={cx("block text-[0.8125rem] leading-[1.125rem]", !pencil && "text-ink-3")}>
           {month}
         </span>
       </>
@@ -176,18 +200,18 @@ function DateParts({
   }
   return (
     <>
-      <span className={cx("text-[0.875rem] whitespace-nowrap", !pencil && "text-ink-2")}>
-        <b className={cx("font-semibold", !pencil && "text-ink")}>{day}</b> {month}
+      <span className={cx("block text-[0.875rem] leading-5", !pencil && "text-ink-2")}>
+        <b className={cx("font-semibold whitespace-nowrap", !pencil && "text-ink")}>{day}</b>{" "}
+        <span className="whitespace-nowrap">{month}</span>
       </span>
       {time && (
         <span
           className={cx(
-            "mt-0.5 flex items-center gap-1 font-money text-[0.75rem] leading-4",
+            "mt-0.5 flex items-center gap-1 font-money text-[0.75rem] leading-4 whitespace-nowrap",
             !pencil && "text-ink-3",
           )}
         >
           {time}
-          {timeIcon}
         </span>
       )}
     </>
@@ -195,17 +219,23 @@ function DateParts({
 }
 
 const CELL = "px-3 py-[13px] align-baseline";
-const CELL_FIRST = "pr-3 pl-3.5 py-[13px] align-baseline";
+// 104 px − 14 − 8 leaves room for «16:30–18:00» in Plex 12 on one line.
+const CELL_FIRST = "pr-2 pl-3.5 py-[13px] align-baseline";
 const LIST_DATE = "row-span-2 pt-3 pr-1 pb-3 pl-2";
 const LIST_CELL = "px-2.5 py-3";
 
-/** Title of a row: a button covering the whole row when the row opens something. */
+/**
+ * Title of a row: a button covering the whole row when the row opens something. `align-top`: a
+ * button is an inline-block, whose baseline is its LAST line; a title on two lines would pull the
+ * date and the amounts (baseline-aligned) down to its second line instead of its first.
+ */
 function RowTitle({ children, onOpen }: { children: ReactNode; onOpen?: () => void }) {
   if (!onOpen) return <>{children}</>;
   return (
     <AriaButton
       onPress={onOpen}
-      className="cursor-pointer text-left after:absolute after:inset-0 after:content-['']"
+      data-ledger-open=""
+      className="cursor-pointer text-left align-top after:absolute after:inset-0 after:content-['']"
     >
       {children}
     </AriaButton>
@@ -254,7 +284,9 @@ export function LedgerEntryRow({
 
   const title = isLesson ? (
     <>
-      <b className={cx("font-semibold", highlighted && "marker")}>{entry.subject?.name ?? "Lezione"}</b>
+      <b className={cx("font-semibold", highlighted && "marker")}>
+        {entry.subject?.name ?? "Lezione"}
+      </b>
       {entry.topic && (
         <>
           {" · "}
@@ -281,7 +313,8 @@ export function LedgerEntryRow({
     <>
       {scheduled && (
         <span className="mt-0.5 block text-[0.8125rem] leading-[1.125rem] text-ink-2">
-          {layout === "list" && time && <>{time} · </>}
+          {/* The time in Plex, as on the other rows (02 §9.6: «orario … (Plex)»). */}
+          {layout === "list" && time && <span className="font-money">{time} · </span>}
           Programmata · non ancora nel saldo
           {timing && (
             <>
@@ -300,7 +333,11 @@ export function LedgerEntryRow({
       {calendarError && (
         <span className="mt-0.5 block text-[0.8125rem] leading-[1.125rem] text-ink-2">
           {layout === "table" || scheduled ? (
-            <CloudSlashIcon size={16} aria-hidden className="mr-1 inline-block align-[-3px] text-danger" />
+            <CloudSlashIcon
+              size={16}
+              aria-hidden
+              className="mr-1 inline-block align-[-3px] text-danger"
+            />
           ) : null}
           {entry.calendar?.error ?? "Non è in Google Calendar."}{" "}
           <Link
@@ -342,7 +379,7 @@ export function LedgerEntryRow({
   return (
     <tr className="group relative h-row-dense border-b border-rule">
       <td className={CELL_FIRST}>
-        <DateParts date={entry.date} today={today} time={time} timeIcon={cloud} layout="table" />
+        <DateParts date={entry.date} today={today} time={time} layout="table" />
       </td>
       <td className={cx(CELL, "text-[0.9375rem] leading-[1.375rem]")}>
         <div className="flex items-start gap-3">
@@ -402,6 +439,14 @@ export interface LedgerDraftRowProps {
   actions: ReactNode;
   /** Ink animation (02 §8): dashes fade, an ink line draws under the row, text turns to ink. */
   inking?: boolean;
+  /**
+   * Name of the row as a proposal («Matita propone: lezione di …»). With it the whole row is the
+   * focus target when Matita proposes it (02 §9.13), not its «Ripassa a penna» button: a stray
+   * Space or Enter typed after the reply must never write.
+   */
+  proposalLabel?: string;
+  /** Keyboard of the focused proposal (Cmd/Ctrl + Enter, Esc), for the row and its buttons. */
+  onKeyDownCapture?: (event: KeyboardEvent) => void;
 }
 
 /** A draft proposed by Matita: graphite, dashed, NOT in the totals until «Ripassa a penna». */
@@ -420,8 +465,19 @@ export function LedgerDraftRow({
   warnings = [],
   actions,
   inking = false,
+  proposalLabel,
+  onKeyDownCapture,
 }: LedgerDraftRowProps) {
   const layout = useLedgerLayout();
+  // The row as one focusable proposal (tabIndex -1: reached by Matita's focus, not by Tab).
+  const proposal = proposalLabel
+    ? {
+        "aria-label": proposalLabel,
+        tabIndex: -1,
+        "data-matita-proposal": "",
+        onKeyDownCapture,
+      }
+    : { onKeyDownCapture };
   const time = kind === "lesson" ? timeRange(startTime ?? null, endTime ?? null) : null;
   const futureLesson = kind === "lesson" && balanceAfterCents === null;
   const note = futureLesson ? "Bozza · programmata: non entra subito nel saldo" : "Bozza";
@@ -487,7 +543,10 @@ export function LedgerDraftRow({
 
   if (layout === "list") {
     return (
-      <li className={cx("grid min-h-row border-b border-rule", LEDGER_LIST_GRID, shell)}>
+      <li
+        {...proposal}
+        className={cx("grid min-h-row border-b border-rule", LEDGER_LIST_GRID, shell)}
+      >
         <div className={LIST_DATE}>
           <DateParts date={date} today={today} layout="list" pencil />
         </div>
@@ -511,7 +570,11 @@ export function LedgerDraftRow({
   return (
     <tr className="border-b border-rule">
       <td colSpan={6} className="p-0">
-        <div className={cx("grid", LEDGER_GRID, shell)}>
+        <div
+          {...proposal}
+          role={proposalLabel ? "group" : undefined}
+          className={cx("grid", LEDGER_GRID, shell)}
+        >
           <div className={CELL_FIRST}>
             <DateParts date={date} today={today} time={time} layout="table" pencil />
           </div>
@@ -634,7 +697,13 @@ export function LedgerCarryRow({
 }
 
 /** A full-width row: the Matita line at the top of the ledger, the empty «Pagina bianca». */
-export function LedgerSlotRow({ children, className }: { children: ReactNode; className?: string }) {
+export function LedgerSlotRow({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   const layout = useLedgerLayout();
   if (layout === "list") return <li className={className}>{children}</li>;
   return (

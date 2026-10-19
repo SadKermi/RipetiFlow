@@ -35,6 +35,7 @@ make dev-frontend   # SPA su http://localhost:5173 → «Prova la demo»
 |---|---|
 | `make test` | test SQL + backend (pytest su Postgres reale) + frontend (Vitest) |
 | `make e2e` | Playwright su un DB nuovo: avvia backend demo e Vite da solo |
+| `make screens` | come `make e2e`, e rigenera gli screenshot in `docs/design/screens/` (390 e 1440 px) |
 | `make lint` / `make format` | ruff + mypy strict, ESLint + Prettier + tsc |
 | `make gen-api` | rigenera i tipi TypeScript dell'API dal backend (dopo ogni modifica al contratto) |
 | `make eval-assistant` | valuta Matita contro il modello reale (serve la chiave, costo < 0,05 $) |
@@ -69,6 +70,10 @@ Dockerfile, render.yaml, Makefile
 
 ## Cose da sapere prima di andare in produzione
 
+- **Migrazione da applicare**: `supabase/migrations/20261012200000_calendar_link_lifecycle.sql` non è
+  ancora sul progetto Supabase (la conferma per le istruzioni `DROP` richiesta dal connettore non
+  arriva in tempo). Va incollata nel SQL Editor del progetto prima di avviare questo backend
+  contro il database di produzione; poi si registra nello storico (skill `ripetiflow-migration`).
 - **Vecchio sito**: risponde con `APP_DEBUG=true` (stack trace e configurazione visibili a chiunque
   provochi un errore). Va spento subito, indipendentemente da questa ricostruzione ([docs/01](docs/01-reverse-engineering.md)).
 - **`DATABASE_URL`**: serve la password del database Supabase (Project Settings → Database), usata

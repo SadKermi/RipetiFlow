@@ -5,10 +5,11 @@ Query, Tailwind CSS v4 con i token del Designer, React Aria Components, supabase
 Contratto API in [`docs/05-api.md`](../docs/05-api.md), decisioni in
 [`docs/02`](../docs/02-requisiti-e-decisioni.md).
 
-> **Stato:** infrastruttura completa (client API tipizzato, autenticazione, data layer, formati
-> italiani, routing, test). Le pagine sono **segnaposto** in HTML semantico che dimostrano il
-> collegamento con l'API: le schermate vere arriveranno con i componenti del design system
-> ([`docs/design/`](../docs/design/)).
+> **Stato:** tutte le schermate di [`docs/design/03-schermate.md`](../docs/design/03-schermate.md)
+> sono implementate con i componenti del design system «Registro», Matita compresa. La guida per
+> chi sviluppa (struttura, schermate ↔ codice, catalogo dei componenti, dati, Matita, test, come
+> aggiungere una schermata o un modulo) è [`docs/07-frontend.md`](../docs/07-frontend.md); questo
+> file copre avvio, script, configurazione e dipendenze.
 
 ## Avvio rapido (modalità demo)
 
@@ -67,15 +68,18 @@ src/
   app/
     App.tsx              provider: QueryClient → I18nProvider it-IT → Auth → Router (+ error boundary)
     router.tsx           rotte con lazy loading (un chunk per pagina) e guardie
-    RootLayout.tsx       RouterProvider di React Aria (link client-side) + ScrollRestoration
-    AppShell.tsx         guscio provvisorio delle pagine autenticate (nav, "Esci")
+    RootLayout.tsx       RouterProvider di React Aria (link client-side) + toast + ScrollRestoration
+    AppShell.tsx         guscio delle pagine autenticate (tab bar / barra in alto, slot di Matita)
     ErrorBoundary.tsx    errore globale e errorElement delle rotte (anche chunk scaduti dopo un deploy)
     auth/                stato di autenticazione (store.ts), provider, useAuth(), guardie, demo
   routes/                una pagina per file: esporta `Component` (React Router lazy)
-  components/            componenti condivisi (oggi solo Loadable; il design system arriverà qui)
+  features/              schermate e logica per area (landing, dashboard, students, ledger, agenda,
+                         settings, calendar, forms, matita): vedi docs/07-frontend.md
+  components/            UI kit del design system «Registro» (02 §9), importato da "@/components"
   lib/
     api/                 schema.d.ts (generato), client.ts, problem.ts, download.ts (CSV), types.ts
     queries/             hook TanStack Query, chiavi (keys.ts), mappa di invalidazione
+    forms/               errori problem+json → campi dei moduli, useFormErrors, orari digitati
     format/              euro, durate, date/ore it-IT, telefoni per wa.me
   styles/                index.css (nostro) · tokens.css e fonts.md (del Designer: non modificarli)
   test/setup.ts          jest-dom, pulizia tra i test
@@ -158,7 +162,9 @@ I 4xx non vengono ritentati; rete e 5xx sì (2 volte).
    italiano, landmark e titoli corretti).
 2. Registrala in `src/app/router.tsx` con `lazy: () => import("@/routes/<nome>")`, dentro il
    blocco protetto se richiede l'accesso (D-20: niente pagine globali di lezioni o pagamenti).
-3. Usa gli hook di `@/lib/queries`; per stati di caricamento/errore provvisori c'è `<Loadable>`.
+3. Usa gli hook di `@/lib/queries` e i componenti di `@/components` (stati di caricamento, errore
+   e vuoto compresi). La procedura completa, moduli inclusi, è in
+   [`docs/07-frontend.md`](../docs/07-frontend.md) §10.
 
 ## Aggiungere una query o una mutation
 
@@ -183,15 +189,18 @@ dell'API: `npm run typecheck` segnala subito dove il frontend non torna più. Le
 
 ## Test
 
-- **Unit (Vitest + Testing Library, jsdom):** formati, `ApiProblem` e client (header, 401, rete,
-  abort), store di autenticazione (Supabase e demo finti, consenso calendario), mappa di
-  invalidazione, hook di query/mutation, rotte e guardie. Girano nel fuso `Pacific/Kiritimati`
-  (UTC+14) per garantire che le date non dipendano dal fuso della macchina.
-- **E2E (Playwright, Chromium headless):** `e2e/smoke.spec.ts` avvia backend demo (porta 8010) e
-  Vite (5180), entra in modalità demo, ricrea i dati di esempio, verifica gli studenti e il libro
-  mastro. Il DB deve esistere: `make e2e` ne crea uno nuovo (`ripetiflow_e2e`); con `npm run e2e`
-  basta aver eseguito `make db-reset`. `@playwright/test` è fissato alla versione del Chromium
-  installato in `PLAYWRIGHT_BROWSERS_PATH`; altrove: `npx playwright install chromium`.
+- **Unit (Vitest + Testing Library, jsdom):** accanto al codice (`X.test.tsx`): formati,
+  `ApiProblem` e client, store di autenticazione, mappa di invalidazione, hook, componenti del kit,
+  schermate, moduli, Matita. Girano nel fuso `Pacific/Kiritimati` (UTC+14) per garantire che le
+  date non dipendano dal fuso della macchina.
+- **E2E (Playwright, Chromium headless):** `e2e/*.spec.ts` (accesso, registro, agenda,
+  impostazioni, Matita, accessibilità) a 390 e 1440 px; Playwright avvia backend demo (porta 8010)
+  e Vite (5180) (con `make screens` salva anche gli screenshot in `docs/design/screens/`). Il DB deve esistere: `make e2e`
+  ne crea uno nuovo (`ripetiflow_e2e`); con `npm run e2e` basta aver eseguito `make db-reset`.
+  `@playwright/test` è fissato alla versione del Chromium installato in
+  `PLAYWRIGHT_BROWSERS_PATH`; altrove: `npx playwright install chromium`.
+
+Dettagli (aiutanti di test, fixture, screenshot): [`docs/07-frontend.md`](../docs/07-frontend.md) §9.
 
 ## Dipendenze (perché ciascuna)
 

@@ -67,6 +67,10 @@ e2e: ## Playwright E2E on a fresh "ripetiflow_e2e" DB (starts backend in demo mo
 	$(MAKE) --no-print-directory db-reset DEV_DB=$(E2E_DB)
 	$(FRONTEND) E2E_DATABASE_URL="$(patsubst %/postgres,%/$(E2E_DB),$(PG_URL))" npm run e2e
 
+.PHONY: screens
+screens: ## Same as e2e, and rewrites the design-review screenshots in docs/design/screens/
+	E2E_SCREENSHOTS=1 $(MAKE) --no-print-directory e2e
+
 .PHONY: gen-api
 gen-api: ## Regenerate the frontend API types from the FastAPI app (no server needed)
 	$(FRONTEND) npm run gen:api

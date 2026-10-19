@@ -1,7 +1,7 @@
 // Buttons (docs/design/02-design-system.md §9.1): Inchiostro (primary, once per view), Filo,
 // Quieto, Pericolo; square 44×44 icon-only; small 36 px only from 768 px up (44 below).
 import type { Icon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { type ReactNode, type Ref, useCallback } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from "react-aria-components";
 import { Link, type LinkProps } from "react-router";
 import { type ButtonLookProps, type ButtonSize, buttonClasses } from "./button-styles";
@@ -43,9 +43,9 @@ function Content({
 }
 
 export interface ButtonProps
-  extends ButtonLookProps,
-    Omit<AriaButtonProps, "className" | "children" | "style"> {
+  extends ButtonLookProps, Omit<AriaButtonProps, "className" | "children" | "style"> {
   children?: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /**
@@ -62,14 +62,28 @@ export function Button({
   isPending = false,
   children,
   type = "button",
+  ref,
   ...rest
 }: ButtonProps) {
+  // React Aria marks a pending button aria-disabled and announces it, but drops aria-busy, which
+  // 02 §9.1 asks for: set it on the element directly.
+  const busyRef = useCallback(
+    (element: HTMLButtonElement | null) => {
+      if (element) {
+        if (isPending) element.setAttribute("aria-busy", "true");
+        else element.removeAttribute("aria-busy");
+      }
+      if (typeof ref === "function") ref(element);
+      else if (ref) ref.current = element;
+    },
+    [isPending, ref],
+  );
   return (
     <AriaButton
       {...rest}
+      ref={busyRef}
       type={type}
       isPending={isPending}
-      aria-busy={isPending || undefined}
       className={buttonClasses({ variant, size, square, fullWidth, className })}
     >
       <Content icon={icon} size={size} isPending={isPending}>

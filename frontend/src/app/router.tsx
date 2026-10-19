@@ -1,4 +1,6 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
+import { MatitaSlotContext } from "@/components/shell/matita-slot";
+import { MATITA_SLOTS } from "@/features/matita";
 import { AppShell } from "./AppShell";
 import { RedirectIfSignedIn, RequireAuth } from "./auth";
 import { RouteError } from "./ErrorBoundary";
@@ -27,7 +29,10 @@ export const routes: RouteObject[] = [
       {
         element: (
           <RequireAuth>
-            <AppShell />
+            {/* Matita fills the shell's slots (bar, ⌘K, Oggi and ledger lines), loaded lazily. */}
+            <MatitaSlotContext value={MATITA_SLOTS}>
+              <AppShell />
+            </MatitaSlotContext>
           </RequireAuth>
         ),
         children: [

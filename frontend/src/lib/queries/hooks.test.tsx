@@ -5,7 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setSessionBridge } from "../api/session";
 import type { Lesson, RateInput } from "../api/types";
 import { queryKeys } from "./keys";
-import { useActivity, useCreateLesson, useLessons, useRatePreview, useUpdateLesson } from "./index";
+import {
+  useActivity,
+  useCreateLesson,
+  useLessons,
+  useRatePreview,
+  useUpdateLesson,
+  useUpdateProfile,
+} from "./index";
 
 const LESSON: Lesson = {
   id: "l1",
@@ -155,5 +162,49 @@ describe("queries", () => {
       hourly_rate_cents: 3500,
       effective_from: "2026-09-01",
     });
+  });
+});
+
+describe("profile mutation", () => {
+  const PROFILE = {
+    id: "u1",
+    email: "d.marchi@esempio.it",
+    full_name: "Daniele Marchi",
+    timezone: "America/New_York",
+    default_lesson_minutes: 60,
+    default_hourly_rate_cents: null,
+    created_at: "2026-09-01T10:00:00Z",
+  };
+
+  function seed(queryClient: QueryClient) {
+    const keys = {
+      ledger: queryKeys.student.ledger("s1", {}),
+      detail: queryKeys.student.detail("s1"),
+      students: queryKeys.students.list({ sort: "balance" }),
+      week: queryKeys.lessons.range({ from: "2026-10-05", to: "2026-10-11" }),
+      dashboard: queryKeys.dashboard.detail(7),
+    };
+    for (const key of Object.values(keys)) queryClient.setQueryData(key, { cached: true });
+    return keys;
+  }
+
+  it("a new timezone refreshes balances, ledgers and lessons (it decides what is «svolta»)", async () => {
+    const { queryClient, wrapper } = setup(() => json(PROFILE));
+    const keys = seed(queryClient);
+    const { result } = renderHook(() => useUpdateProfile(), { wrapper });
+    await act(() => result.current.mutateAsync({ timezone: "America/New_York" }));
+    for (const key of Object.values(keys)) {
+      expect(queryClient.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true);
+    }
+  });
+
+  it("a new name refreshes only the profile and the dashboard", async () => {
+    const { queryClient, wrapper } = setup(() => json(PROFILE));
+    const keys = seed(queryClient);
+    const { result } = renderHook(() => useUpdateProfile(), { wrapper });
+    await act(() => result.current.mutateAsync({ full_name: "Daniele Marchi" }));
+    expect(queryClient.getQueryState(keys.dashboard)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(keys.ledger)?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(keys.students)?.isInvalidated).toBe(false);
   });
 });

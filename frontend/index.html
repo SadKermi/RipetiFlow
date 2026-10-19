@@ -10,6 +10,15 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>RipetiFlow</title>
+    <script>
+      // «Aspetto» in Impostazioni (src/features/settings/theme.ts): applied before the first paint.
+      try {
+        var theme = localStorage.getItem("ripetiflow.theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

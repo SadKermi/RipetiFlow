@@ -6,9 +6,10 @@ import {
   type Icon,
   MagnifyingGlassIcon,
   PlusIcon,
+  WarningIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useId, useState } from "react";
 import {
   Autocomplete,
   Button as AriaButton,
@@ -28,7 +29,7 @@ import {
   useFilter,
 } from "react-aria-components";
 import { FieldErrorMessage, FieldLabel } from "./Field";
-import { CONTROL_BOX, HINT } from "./field-styles";
+import { CONTROL_BOX, ERROR, HINT, LABEL } from "./field-styles";
 import { cx, useIsMobile } from "./utils";
 
 export interface SelectOption {
@@ -175,15 +176,17 @@ export function Select({
         <ListBox className="outline-none">
           {emptyOption && (
             <ListBoxItem id={NONE_KEY} textValue={emptyOption} className={OPTION}>
-              {({ isSelected }) => (
-                <OptionContent label={emptyOption} isSelected={isSelected} />
-              )}
+              {({ isSelected }) => <OptionContent label={emptyOption} isSelected={isSelected} />}
             </ListBoxItem>
           )}
           {options.map((option) => (
             <ListBoxItem key={option.id} id={option.id} textValue={option.label} className={OPTION}>
               {({ isSelected }) => (
-                <OptionContent label={option.label} detail={option.detail} isSelected={isSelected} />
+                <OptionContent
+                  label={option.label}
+                  detail={option.detail}
+                  isSelected={isSelected}
+                />
               )}
             </ListBoxItem>
           ))}
@@ -204,36 +207,28 @@ export interface SearchSelectProps extends CommonSelectProps {
   emptyText?: (query: string) => string;
 }
 
-/**
- * Menu with search (Studente): typing filters the list and Enter takes the first match. On desktop
- * a popover under the field; on mobile a full-height sheet with the search on top and 56 px rows.
- */
-export function SearchSelect({
-  label,
+function SearchList({
   options,
-  value,
-  onChange,
-  placeholder = "Scegli…",
   emptyOption,
   createLabel,
-  onCreate,
-  icon,
-  hint,
-  error,
-  optional,
-  required,
-  isDisabled,
-  className,
   query,
   onQueryChange,
-  searchLabel = "Cerca per nome",
-  emptyText = (q) => `Nessun risultato per «${q}».`,
-}: SearchSelectProps) {
-  const mobile = useIsMobile();
+  searchLabel,
+  emptyText,
+  tall,
+  selection,
+}: Pick<
+  SearchSelectProps,
+  "options" | "emptyOption" | "createLabel" | "query" | "onQueryChange" | "searchLabel"
+> & {
+  emptyText: (query: string) => string;
+  /** Mobile sheet: 56 px rows, list fills the height. */
+  tall: boolean;
+  /** Standalone list (mobile sheet): selection handled here instead of by a <Select>. */
+  selection?: { selectedKey: Key | null; onSelect: (key: Key) => void };
+}) {
   const { contains } = useFilter({ sensitivity: "base" });
-  const handleChange = useChangeHandler(onChange, onCreate, query);
-
-  const list = (
+  return (
     <Autocomplete
       inputValue={query}
       onInputChange={onQueryChange}
@@ -243,6 +238,7 @@ export function SearchSelect({
     >
       <SearchField
         aria-label={searchLabel}
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- typing to search is why the list opened
         autoFocus
         className="group relative m-1 flex items-center"
       >
@@ -263,10 +259,18 @@ export function SearchSelect({
         </AriaButton>
       </SearchField>
       <ListBox
-        className={cx("min-h-0 flex-1 overflow-auto p-1 outline-none", !mobile && "max-h-72")}
+        aria-label={selection ? searchLabel : undefined}
+        className={cx("min-h-0 flex-1 overflow-auto p-1 outline-none", !tall && "max-h-72")}
         renderEmptyState={() => (
           <p className="px-3 py-3 text-[0.875rem] text-ink-3">{emptyText(query)}</p>
         )}
+        {...(selection
+          ? {
+              selectionMode: "single" as const,
+              selectedKeys: selection.selectedKey === null ? [] : [selection.selectedKey],
+              onAction: selection.onSelect,
+            }
+          : {})}
       >
         {emptyOption && (
           <ListBoxItem id={NONE_KEY} textValue={emptyOption} className={OPTION}>
@@ -278,7 +282,7 @@ export function SearchSelect({
             key={option.id}
             id={option.id}
             textValue={option.label}
-            className={cx(OPTION, mobile && "min-h-row")}
+            className={cx(OPTION, tall && "min-h-row")}
           >
             {({ isSelected }) => (
               <OptionContent label={option.label} detail={option.detail} isSelected={isSelected} />
@@ -289,7 +293,41 @@ export function SearchSelect({
       </ListBox>
     </Autocomplete>
   );
+}
 
+/**
+ * Menu with search (Studente): typing filters the list and Enter takes the first match. On desktop
+ * a popover under the field; on mobile a full-height sheet with the search on top and 56 px rows.
+ */
+export function SearchSelect(props: SearchSelectProps) {
+  const mobile = useIsMobile();
+  return mobile ? <MobileSearchSelect {...props} /> : <DesktopSearchSelect {...props} />;
+}
+
+const DEFAULT_EMPTY_TEXT = (q: string) => `Nessun risultato per «${q}».`;
+
+function DesktopSearchSelect({
+  label,
+  options,
+  value,
+  onChange,
+  placeholder = "Scegli…",
+  emptyOption,
+  createLabel,
+  onCreate,
+  icon,
+  hint,
+  error,
+  optional,
+  required,
+  isDisabled,
+  className,
+  query,
+  onQueryChange,
+  searchLabel = "Cerca per nome",
+  emptyText = DEFAULT_EMPTY_TEXT,
+}: SearchSelectProps) {
+  const handleChange = useChangeHandler(onChange, onCreate, query);
   return (
     <AriaSelect
       value={toKey(value, emptyOption)}
@@ -312,35 +350,139 @@ export function SearchSelect({
           {hint}
         </Text>
       )}
-      {mobile ? (
-        <ModalOverlay isDismissable className="fixed inset-0 z-(--rf-z-overlay) bg-scrim">
-          <Modal className="fixed inset-x-0 top-[4dvh] bottom-0 flex flex-col rounded-t-sheet bg-paper-raised pb-[env(safe-area-inset-bottom)] shadow-sheet outline-none">
-            <Dialog aria-label={label} className="flex min-h-0 flex-1 flex-col outline-none">
-              {({ close }) => (
-                <>
-                  <div className="flex items-center justify-between gap-2 px-4 pt-3">
-                    <Heading slot="title" className="font-display text-display-s font-normal">
-                      {label}
-                    </Heading>
-                    <AriaButton
-                      aria-label="Chiudi"
-                      onPress={close}
-                      className="grid size-touch cursor-pointer place-items-center text-ink-2"
-                    >
-                      <XIcon size={20} aria-hidden />
-                    </AriaButton>
-                  </div>
-                  <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">{list}</div>
-                </>
-              )}
-            </Dialog>
-          </Modal>
-        </ModalOverlay>
-      ) : (
-        <Popover offset={6} className={cx(POPOVER, "flex max-h-96 flex-col p-1")}>
-          {list}
-        </Popover>
-      )}
+      <Popover offset={6} className={cx(POPOVER, "flex max-h-96 flex-col p-1")}>
+        <SearchList
+          options={options}
+          emptyOption={emptyOption}
+          createLabel={createLabel}
+          query={query}
+          onQueryChange={onQueryChange}
+          searchLabel={searchLabel}
+          emptyText={emptyText}
+          tall={false}
+        />
+      </Popover>
     </AriaSelect>
+  );
+}
+
+/**
+ * Mobile: the field is a button that opens a full-height sheet (React Aria's Select only builds
+ * its list inside a Popover, so the sheet keeps its own selection).
+ */
+function MobileSearchSelect({
+  label,
+  options,
+  value,
+  onChange,
+  placeholder = "Scegli…",
+  emptyOption,
+  createLabel,
+  onCreate,
+  icon: IconComponent,
+  hint,
+  error,
+  optional,
+  required,
+  isDisabled,
+  className,
+  query,
+  onQueryChange,
+  searchLabel = "Cerca per nome",
+  emptyText = DEFAULT_EMPTY_TEXT,
+}: SearchSelectProps) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const handleChange = useChangeHandler(onChange, onCreate, query);
+  const selected = options.find((option) => option.id === value);
+  const shown = selected?.label ?? (value === null && emptyOption ? emptyOption : null);
+  const describedBy = cx(error ? `${id}-error` : null, hint ? `${id}-hint` : null) || undefined;
+
+  const setOpenAndReset = (next: boolean) => {
+    setOpen(next);
+    if (!next) onQueryChange("");
+  };
+
+  return (
+    <div className={cx("block", className)}>
+      <span id={`${id}-label`} className={LABEL}>
+        {label}
+        {required && <span aria-hidden> *</span>}
+        {optional && <span className="font-normal text-ink-3"> (facoltativo)</span>}
+      </span>
+      <AriaButton
+        isDisabled={isDisabled}
+        aria-labelledby={`${id}-label ${id}-value`}
+        aria-describedby={describedBy}
+        aria-haspopup="dialog"
+        aria-required={required || undefined}
+        data-rf-invalid={error ? "true" : undefined}
+        onPress={() => setOpenAndReset(true)}
+        className={CONTROL_BOX}
+      >
+        {IconComponent && <IconComponent size={18} aria-hidden className="shrink-0 text-ink-3" />}
+        <span id={`${id}-value`} className={cx("min-w-0 flex-1 truncate", !shown && "text-ink-3")}>
+          {shown ?? placeholder}
+        </span>
+        <CaretDownIcon size={16} aria-hidden className="shrink-0 text-ink-3" />
+      </AriaButton>
+      {error && (
+        <p id={`${id}-error`} className={ERROR}>
+          <WarningIcon size={16} aria-hidden className="mt-px shrink-0" />
+          <span>{error}</span>
+        </p>
+      )}
+      {hint && (
+        <p id={`${id}-hint`} className={HINT}>
+          {hint}
+        </p>
+      )}
+      <ModalOverlay
+        isOpen={open}
+        onOpenChange={setOpenAndReset}
+        isDismissable
+        className="fixed inset-0 z-(--rf-z-overlay) bg-scrim"
+      >
+        <Modal className="fixed inset-x-0 top-[4dvh] bottom-0 flex flex-col rounded-t-sheet bg-paper-raised pb-[env(safe-area-inset-bottom,0px)] shadow-sheet outline-none">
+          <Dialog aria-label={label} className="flex min-h-0 flex-1 flex-col outline-none">
+            {({ close }) => (
+              <>
+                <div className="flex items-center justify-between gap-2 px-4 pt-3">
+                  <Heading slot="title" className="m-0 font-display text-display-s font-normal">
+                    {label}
+                  </Heading>
+                  <AriaButton
+                    aria-label="Chiudi"
+                    onPress={close}
+                    className="grid size-touch cursor-pointer place-items-center text-ink-2"
+                  >
+                    <XIcon size={20} aria-hidden />
+                  </AriaButton>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">
+                  <SearchList
+                    options={options}
+                    emptyOption={emptyOption}
+                    createLabel={createLabel}
+                    query={query}
+                    onQueryChange={onQueryChange}
+                    searchLabel={searchLabel}
+                    emptyText={emptyText}
+                    tall
+                    selection={{
+                      selectedKey: toKey(value, emptyOption),
+                      onSelect: (key) => {
+                        handleChange(key);
+                        close();
+                      },
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
+    </div>
   );
 }

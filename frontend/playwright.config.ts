@@ -31,7 +31,23 @@ export default defineConfig({
     screenshot: "only-on-failure",
     launchOptions: executablePath ? { executablePath } : {},
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // Every journey at the two sizes of the design (docs/design/03-schermate.md): a 390 px phone with
+  // touch and a 1440 px desktop. Screenshots for the design review use these names
+  // (docs/design/screens/<screen>-<390|1440>.png).
+  projects: [
+    {
+      name: "mobile",
+      use: {
+        ...devices["Pixel 7"],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 1,
+      },
+    },
+    {
+      name: "desktop",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+  ],
   webServer: [
     {
       command: `uv run uvicorn app.main:create_app --factory --port ${String(API_PORT)}`,

@@ -108,16 +108,22 @@ describe("routing and auth guards", () => {
     const calls = stubApi();
     const { router } = renderApp("/studenti", makeStore(false));
 
-    expect(await screen.findByRole("heading", { name: "Accedi a RipetiFlow" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Entra nel tuo registro" }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/accedi");
     expect(calls).toEqual([]); // nothing protected was requested
 
     await userEvent.click(screen.getByRole("button", { name: "Entra in modalità demo" }));
 
-    expect(await screen.findByText("2 studenti")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Luca" })).toHaveAttribute(
+      "href",
+      "/studenti/s1",
+    );
     expect(router.state.location.pathname).toBe("/studenti");
-    expect(screen.getByRole("link", { name: "Luca" })).toHaveAttribute("href", "/studenti/s1");
-    expect(calls).toEqual([{ path: "/api/v1/students", authorization: "Bearer demo-token" }]);
+    // The students screen also reads the profile (timezone) and the archived list.
+    expect(calls.map((call) => call.path)).toContain("/api/v1/students");
+    expect(calls.every((call) => call.authorization === "Bearer demo-token")).toBe(true);
   });
 
   it("sends signed-in users from /accedi to /oggi", async () => {
@@ -130,8 +136,10 @@ describe("routing and auth guards", () => {
   it("shows the public landing without signing in", async () => {
     stubApi();
     renderApp("/", makeStore(false));
-    expect(await screen.findByRole("heading", { name: "RipetiFlow" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Accedi" })).toHaveAttribute("href", "/accedi");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /^Segna la lezione appena finita/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Entra" })).toHaveAttribute("href", "/accedi");
   });
 
   it("answers unknown paths with a 404 page", async () => {
@@ -144,7 +152,9 @@ describe("routing and auth guards", () => {
     stubApi({ studentsStatus: 401 });
     const store = makeStore(true);
     const { router } = renderApp("/studenti", store);
-    expect(await screen.findByText("La sessione è scaduta: accedi di nuovo.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("La sessione è scaduta. Entra di nuovo: torni dove eri."),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/accedi");
     expect(store.getSnapshot().status).toBe("signedOut");
   });
@@ -152,7 +162,7 @@ describe("routing and auth guards", () => {
   it("'Esci' clears cached data", async () => {
     stubApi();
     const { queryClient, router } = renderApp("/studenti", makeStore(true));
-    expect(await screen.findByText("2 studenti")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Luca" })).toBeInTheDocument();
     expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
 
     await userEvent.click(screen.getAllByRole("button", { name: "Esci" })[0]!);

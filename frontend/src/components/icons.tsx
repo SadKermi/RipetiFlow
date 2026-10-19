@@ -28,7 +28,13 @@ function isApplePlatform(): boolean {
  * Keyboard shortcut chip: Command icon + «K» on Apple, «Ctrl K» elsewhere (02 §9.13). Desktop only:
  * hidden below 768 px, where there is no keyboard to speak of.
  */
-export function ShortcutKbd({ keyName = "K", className }: { keyName?: string; className?: string }) {
+export function ShortcutKbd({
+  keyName = "K",
+  className,
+}: {
+  keyName?: string;
+  className?: string;
+}) {
   const apple = isApplePlatform();
   const spoken = `Scorciatoia: ${apple ? "Comando" : "Ctrl"} ${keyName}`;
   return (

@@ -148,6 +148,25 @@ describe("invalidation after writes", () => {
     expect(await invalidatedBy({ type: "profile" })).toEqual(["dashboard", "profile"]);
   });
 
+  it("a new timezone also refreshes balances, ledgers and lessons (what is already over)", async () => {
+    const touched = await invalidatedBy({ type: "profile", timezoneChanged: true });
+    expect(touched).toEqual(
+      expect.arrayContaining([
+        "profile",
+        "dashboard",
+        "studentsByName",
+        "studentsSearch",
+        "aDetail",
+        "aLedger",
+        "bLedger",
+        "lessonsWeek",
+        "lessonDetail",
+      ]),
+    );
+    expect(touched).not.toContain("subjects");
+    expect(touched).not.toContain("calendar");
+  });
+
   it("calendar changes refresh sync states", async () => {
     const touched = await invalidatedBy({ type: "calendar" });
     expect(touched).toEqual(

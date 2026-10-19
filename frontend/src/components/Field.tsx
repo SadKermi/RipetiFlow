@@ -63,7 +63,7 @@ export function FieldErrorMessage({ children }: { children?: ReactNode }) {
 
 /** «37/200» when ≤ `threshold` characters are left (server limits, 02 §9.2). */
 function counterText(length: number, max: number): string {
-  return `${length.toLocaleString("it-IT", { useGrouping: "always" } as Intl.NumberFormatOptions)}/${String(max)}`;
+  return `${length.toLocaleString("it-IT", { useGrouping: "always" })}/${String(max)}`;
 }
 
 function Description({
@@ -90,7 +90,8 @@ function Description({
 }
 
 export interface TextFieldProps
-  extends FieldChromeProps,
+  extends
+    FieldChromeProps,
     Omit<AriaTextFieldProps, "className" | "isInvalid" | "isRequired" | "children" | "style"> {
   placeholder?: string;
   /** Extra classes for the <input>, e.g. Literata italic for «Argomento». */
@@ -135,12 +136,7 @@ export function TextField({
       <FieldLabel label={label} optional={optional} required={required} />
       <Input placeholder={placeholder} className={cx(CONTROL, inputClassName)} />
       <FieldErrorMessage>{error}</FieldErrorMessage>
-      <Description
-        hint={hint}
-        length={length}
-        maxLength={maxLength}
-        threshold={counterThreshold}
-      />
+      <Description hint={hint} length={length} maxLength={maxLength} threshold={counterThreshold} />
     </AriaTextField>
   );
 }
@@ -187,18 +183,14 @@ export function TextAreaField({
       <FieldLabel label={label} optional={optional} required={required} />
       <TextArea rows={rows} placeholder={placeholder} className={cx(TEXTAREA, inputClassName)} />
       <FieldErrorMessage>{error}</FieldErrorMessage>
-      <Description
-        hint={hint}
-        length={length}
-        maxLength={maxLength}
-        threshold={counterThreshold}
-      />
+      <Description hint={hint} length={length} maxLength={maxLength} threshold={counterThreshold} />
     </AriaTextField>
   );
 }
 
 export interface NumberFieldProps
-  extends FieldChromeProps,
+  extends
+    FieldChromeProps,
     Omit<
       AriaNumberFieldProps,
       | "className"
@@ -247,7 +239,11 @@ export function NumberField({
       <div className="relative">
         <Input
           placeholder={placeholder}
-          className={cx(CONTROL, "font-money tabular-nums", suffix && "pr-14 data-invalid:pr-[3.4375rem]")}
+          className={cx(
+            CONTROL,
+            "font-money tabular-nums",
+            suffix && "pr-14 data-invalid:pr-[3.4375rem]",
+          )}
         />
         {suffix && (
           <span
@@ -271,7 +267,8 @@ export function NumberField({
 export const INVALID_AMOUNT_MESSAGE = "Scrivi un importo in euro, per esempio 25,50.";
 
 export interface MoneyFieldProps
-  extends FieldChromeProps,
+  extends
+    FieldChromeProps,
     Omit<
       AriaTextFieldProps,
       | "className"
@@ -329,7 +326,8 @@ export function MoneyField({
   }
 
   const shownError = error ?? (unreadable && !focused ? INVALID_AMOUNT_MESSAGE : null);
-  const padRight = unit === "€" ? "pr-9 data-invalid:pr-[2.1875rem]" : "pr-14 data-invalid:pr-[3.4375rem]";
+  const padRight =
+    unit === "€" ? "pr-9 data-invalid:pr-[2.1875rem]" : "pr-14 data-invalid:pr-[3.4375rem]";
 
   return (
     <AriaTextField

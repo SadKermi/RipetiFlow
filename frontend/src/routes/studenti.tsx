@@ -1,29 +1,8 @@
-import { Link } from "react-router";
-import { Loadable } from "@/components/Loadable";
-import { formatEuro } from "@/lib/format";
-import { useStudents } from "@/lib/queries";
+import { usePageTitle } from "@/app/page";
+import { StudentsScreen } from "@/features/students";
 
-// Placeholder for the students index (D-20): proves the list query.
+// Students index (D-20, docs/design/03-schermate.md §4).
 export function Component() {
-  const students = useStudents({ sort: "name" });
-  return (
-    <>
-      <h1>Studenti</h1>
-      <Loadable query={students}>
-        {(items) => (
-          <>
-            <p>{items.length === 1 ? "1 studente" : `${String(items.length)} studenti`}</p>
-            <ul>
-              {items.map((student) => (
-                <li key={student.id}>
-                  <Link to={`/studenti/${student.id}`}>{student.display_name}</Link> —{" "}
-                  {formatEuro(student.balance.balance_cents)}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </Loadable>
-    </>
-  );
+  usePageTitle("Studenti");
+  return <StudentsScreen />;
 }

@@ -27,24 +27,31 @@ export function StudentListItem({
 }: StudentListItemProps) {
   const id = useId();
   const meta = studentMeta(student, today);
+  // The link is the student's name (its whole visible text, WCAG 2.5.3) and is stretched over the
+  // row with ::after, so the row stays one tap target; class, next lesson and balance are its
+  // description. Wrapping them in the link would name it with text that is not on screen
+  // («ti deve 120 euro» for «DEVE 120,00 €»).
   return (
-    <Link
-      to={href ?? `/studenti/${student.id}`}
-      aria-labelledby={`${id}-name`}
-      aria-describedby={`${id}-meta ${id}-balance`}
+    <div
       className={cx(
-        "flex min-h-16 items-center gap-3 border-b border-rule py-3 text-ink no-underline transition-colors hover:bg-paper-sunk",
+        "relative flex min-h-16 items-center gap-3 border-b border-rule py-3 text-ink transition-colors hover:bg-paper-sunk",
         className,
       )}
     >
       <span className="min-w-0 flex-1">
-        <span id={`${id}-name`} className="block truncate text-[1rem] leading-[1.375rem] font-medium">
-          {student.display_name}
-        </span>
-        <span
-          id={`${id}-meta`}
-          className="block truncate text-[0.875rem] leading-5 text-ink-3"
+        <Link
+          to={href ?? `/studenti/${student.id}`}
+          aria-describedby={`${id}-meta ${id}-balance`}
+          className={cx(
+            "block truncate text-[1rem] leading-[1.375rem] font-medium no-underline",
+            "after:absolute after:inset-0 after:content-['']",
+            "focus-visible:shadow-none focus-visible:outline-none",
+            "focus-visible:after:shadow-[0_0_0_5px_var(--rf-focus-halo)] focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ink",
+          )}
         >
+          {student.display_name}
+        </Link>
+        <span id={`${id}-meta`} className="block truncate text-[0.875rem] leading-5 text-ink-3">
           {meta}
           {showArchived && student.archived && (meta ? " · archiviato" : "archiviato")}
         </span>
@@ -56,6 +63,6 @@ export function StudentListItem({
         />
       </span>
       <CaretRightIcon size={20} aria-hidden className="shrink-0 text-ink-3" />
-    </Link>
+    </div>
   );
 }

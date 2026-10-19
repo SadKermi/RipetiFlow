@@ -1,58 +1,93 @@
-import { test as base, expect } from "@playwright/test";
+import { expect, expectAccessible, test } from "./fixtures";
 
-// Smoke test of the plumbing: public config → demo sign-in → API calls with the bearer token →
-// seed → data on screen. The full journeys (student, lesson, payment, balance) come with the
-// designed screens.
-
-// Any console error or uncaught exception in the page fails the test.
-const test = base.extend<{ pageProblems: string[] }>({
-  pageProblems: [
-    async ({ page }, use) => {
-      const problems: string[] = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") problems.push(message.text());
-      });
-      page.on("pageerror", (error) => problems.push(error.message));
-      await use(problems);
-      expect(problems).toEqual([]);
-    },
-    { auto: true },
-  ],
-});
+// The way in: landing → «Entra nel registro» → /accedi → demo → Oggi (03 §1–3), the session kept
+// across a reload, and «Esci». The data comes from POST /dev/seed through the demo section of
+// Impostazioni, as a tutor trying the demo would do.
 
 test("i visitatori non autenticati vengono mandati ad /accedi", async ({ page }) => {
   await page.goto("/studenti");
   await expect(page).toHaveURL(/\/accedi$/);
-  await expect(page.getByRole("heading", { name: "Accedi a RipetiFlow" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Entra nel tuo registro" })).toBeVisible();
 });
 
-test("demo: accesso, dati di esempio, elenco studenti e libro mastro", async ({ page }) => {
-  await page.goto("/accedi");
+test("landing → accesso demo → Oggi, dati di esempio, uscita", async ({
+  page,
+  mobile,
+  screens,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Segna la lezione appena finita. Il conto lo tiene il registro.",
+    }),
+  ).toBeVisible();
+  // Matita is off on this server: its section is not on the landing (03 §1, «solo se
+  // assistant_available»); «Cosa non fa» always is.
+  await expect(page.getByRole("heading", { name: "Cosa non fa" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Matita scrive a matita/ })).toHaveCount(0);
+  await expectAccessible(page);
+  await screens.page("landing");
+
+  await page.getByRole("main").getByRole("link", { name: "Entra nel registro" }).first().click();
+  await expect(page).toHaveURL(/\/accedi$/);
+  await expect(page.getByRole("heading", { name: "Entra nel tuo registro" })).toBeVisible();
+  // Only the demo is configured on the E2E server: no Google button, no email field.
+  await expect(page.getByRole("button", { name: "Continua con Google" })).toHaveCount(0);
+  await expect(
+    page.getByText("Solo in sviluppo: dati di esempio, nessun account vero."),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await screens.page("accedi");
+
   await page.getByRole("button", { name: "Entra in modalità demo" }).click();
   await expect(page).toHaveURL(/\/oggi$/);
-  await expect(page.getByRole("heading", { name: "Oggi" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Oggi" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Impostazioni" }).click();
-  await page.getByRole("button", { name: "Ricarica i dati demo" }).click();
+  // Fresh demo data from Impostazioni («Altro» on mobile), with its confirmation (03 §8).
+  const sections = page.getByRole("navigation", { name: "Sezioni" });
+  if (mobile) {
+    await sections.getByRole("link", { name: "Altro" }).click();
+  } else {
+    await page.getByRole("button", { name: "Account: Tutor Demo, TD" }).click();
+    await page.getByRole("menuitem", { name: "Impostazioni" }).click();
+  }
+  await expect(page).toHaveURL(/\/impostazioni$/);
+  await page.getByRole("button", { name: "Ricrea i dati di esempio" }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText(
+    "Cancella e ricrea studenti, lezioni e pagamenti di esempio.",
+  );
+  await confirm.getByRole("button", { name: "Ricrea i dati" }).click();
   await expect(page.getByText(/Dati demo ricreati: [1-9]\d* studenti/)).toBeVisible();
 
-  await page
-    .getByRole("navigation", { name: "Sezioni" })
-    .getByRole("link", { name: "Studenti" })
-    .click();
-  await expect(page).toHaveURL(/\/studenti$/);
-  await expect(page.getByText(/^[1-9]\d* student[ei]$/)).toBeVisible();
-
-  const students = page.getByRole("main").getByRole("listitem").getByRole("link");
-  expect(await students.count()).toBeGreaterThan(0);
-  await students.first().click();
-  await expect(page).toHaveURL(/\/studenti\/[0-9a-f-]{36}$/);
-  await expect(page.getByText(/^[1-9]\d* movimenti$/)).toBeVisible();
+  await sections.getByRole("link", { name: "Oggi" }).click();
+  await expect(page).toHaveURL(/\/oggi$/);
+  const upcoming = page.getByRole("region", { name: "Prossime lezioni" });
+  const open = page.getByRole("region", { name: "Conti aperti" });
+  await expect(upcoming.getByRole("listitem").first()).toBeVisible();
+  await expect(open.getByRole("listitem").first()).toBeVisible();
+  await expect(open.getByText("Da incassare")).toBeVisible();
+  await expect(page.getByRole("region", { name: /^\p{L}+ \d{4}$/u })).toContainText(
+    /lezioni? svolt[ae]/,
+  );
+  // ASSISTANT_PROVIDER=none: Matita says it is off, the form is the way (03 §9.4).
+  if (!mobile) {
+    await expect(
+      page.getByText(
+        "Matita non è attiva su questo server. Usa i moduli: tutto funziona come sempre.",
+      ),
+    ).toBeVisible();
+  }
+  await expectAccessible(page);
+  await screens.page("oggi");
 
   // The demo session lives in sessionStorage: a reload keeps it.
   await page.reload();
-  await expect(page.getByText(/^[1-9]\d* movimenti$/)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Oggi" })).toBeVisible();
 
   await page.getByRole("button", { name: "Esci" }).first().click();
+  await expect(page).toHaveURL(/\/(accedi)?$/);
+  await page.goto("/oggi");
   await expect(page).toHaveURL(/\/accedi$/);
 });

@@ -45,7 +45,8 @@ Assistant in dev: `ASSISTANT_PROVIDER=none` (disabled) unless a real key is set;
 - Server errors: map problem+json to fields with the helper in `src/lib/forms/`.
 - Copy and layout come from `docs/design/03-schermate.md` (mobile 390 and desktop 1440).
 - Tests next to the code (`*.test.tsx`, Vitest + Testing Library); journeys in `frontend/e2e/`.
-  E2E specs save screenshots to `docs/design/screens/` for design review.
+  `make screens` reruns the E2E and saves screenshots to `docs/design/screens/` for design review
+  (`make e2e` alone does not write them: the demo data depends on today's date).
 
 ## Cloud container quirks
 - Local Postgres may stop when the container restarts. If `pg_isready -h localhost -p 54329` fails:

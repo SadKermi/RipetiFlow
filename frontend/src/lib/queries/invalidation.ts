@@ -14,7 +14,11 @@ export type WriteEvent =
   /** Rate added/removed (possibly repricing lessons). */
   | { type: "rate"; studentId: string }
   | { type: "subject" }
-  | { type: "profile" }
+  /**
+   * Profile saved. `timezoneChanged`: the timezone decides when a lesson is over and enters the
+   * balance (D-11, D-17), so balances, ledgers and lessons («svolta» / programmata) change too.
+   */
+  | { type: "profile"; timezoneChanged?: boolean }
   | { type: "calendar" }
   /** Demo data wiped and recreated: everything is stale. */
   | { type: "everything" };
@@ -69,8 +73,16 @@ export function keysToInvalidate(event: WriteEvent): QueryKey[] {
         queryKeys.dashboard.all(),
       ];
     case "profile":
-      // The timezone decides "today" for the dashboard.
-      return [queryKeys.profile(), queryKeys.dashboard.all()];
+      // The timezone decides "today" for the dashboard, and which lessons are in the balance.
+      return event.timezoneChanged
+        ? [
+            queryKeys.profile(),
+            queryKeys.dashboard.all(),
+            queryKeys.students.all(),
+            queryKeys.student.all(),
+            queryKeys.lessons.all(),
+          ]
+        : [queryKeys.profile(), queryKeys.dashboard.all()];
     case "calendar":
       // Sync state is shown on lessons (agenda, ledger) and on the dashboard.
       return [

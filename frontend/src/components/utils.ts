@@ -63,7 +63,7 @@ export function useNow(intervalMs = 60_000): Date {
 
 /** Amount for a ledger column: no «€» (the column header says it), never a sign. 4400 → "44,00". */
 export function formatAmountColumn(cents: number): string {
-  return formatEuroAbs(cents).replace(/[\s  ]*€$/, "");
+  return formatEuroAbs(cents).replace(/[\s\u00a0\u202f]*€$/, "");
 }
 
 /** Duration in a column, `H h MM` (02 §7): 90 → "1 h 30", 120 → "2 h", 45 → "45 min". */
@@ -165,7 +165,8 @@ export function lessonTiming(
       : { label: "in corso", inProgress: true };
   }
   const wait = start - nowMinutes;
-  if (wait > 0 && wait < SOON_MINUTES) return { label: `tra ${formatMinutes(wait)}`, inProgress: false };
+  if (wait > 0 && wait < SOON_MINUTES)
+    return { label: `tra ${formatMinutes(wait)}`, inProgress: false };
   return null;
 }
 
@@ -191,9 +192,47 @@ export function studentMeta(
   if (student.next_lesson) {
     const { date, start_time: start } = student.next_lesson;
     const time = start.slice(0, 5);
-    parts.push(date === today ? `oggi ${time}` : `prossima ${formatShortDate(date, today)}, ${time}`);
+    parts.push(
+      date === today ? `oggi ${time}` : `prossima ${formatShortDate(date, today)}, ${time}`,
+    );
   } else if (student.last_lesson_date) {
     parts.push(`ultima ${formatShortDate(student.last_lesson_date, today)}`);
   }
   return parts.join(" · ");
+}
+
+/** «Non riesco a caricare i dati.» / «… quelli che vedi sono delle 9:12.» (03 §10.2). */
+export function loadErrorText({
+  cachedAt,
+  offline = false,
+  timeZone = "Europe/Rome",
+}: {
+  cachedAt?: Date | number | null;
+  offline?: boolean;
+  timeZone?: string;
+}): string {
+  if (cachedAt === null || cachedAt === undefined) return "Non riesco a caricare i dati.";
+  const time = new Intl.DateTimeFormat("it-IT", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+  }).format(cachedAt);
+  return offline
+    ? `Sei offline: quelli che vedi sono i dati delle ${time}.`
+    : `Non riesco ad aggiornare i dati: quelli che vedi sono delle ${time}.`;
+}
+
+/** Avatar initials: «Daniele Marchi» → «DM»; without a name, the email's first letter. */
+export function initialsOf(
+  name: string | null | undefined,
+  email: string | null | undefined,
+): string {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length > 0) {
+    const first = words[0]?.[0] ?? "";
+    const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? "") : "";
+    return `${first}${last}`.toLocaleUpperCase("it-IT");
+  }
+  const letter = (email ?? "").trim()[0];
+  return letter ? letter.toLocaleUpperCase("it-IT") : "?";
 }

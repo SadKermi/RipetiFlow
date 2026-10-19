@@ -37,13 +37,22 @@ import { parseTimeInput } from "@/lib/forms";
 import { CONTROL, CONTROL_BOX, ERROR, HINT, LABEL } from "./field-styles";
 import { cx, formatDayFieldValue, useIsMobile } from "./utils";
 
-/** Text-chip buttons under a field («Oggi · Ieri · Altro…», «+1 h · +1 h 30 · +2 h»). */
+/**
+ * Text-chip buttons under a field («Oggi · Ieri · Altro…», «+1 h · +1 h 30 · +2 h»): 44 px tall
+ * everywhere and at least 44 px wide on the phone, where «Ieri» alone would be 30 (02 §2, §10.3).
+ */
 const CHIP =
-  "relative -my-3 inline-block cursor-pointer px-1 py-3 text-[0.875rem] leading-5 font-medium text-ink-2 underline-offset-4 data-hovered:text-ink data-hovered:underline data-disabled:cursor-not-allowed data-disabled:opacity-40";
+  "relative -my-3 inline-block cursor-pointer px-1 py-3 text-center max-md:min-w-11 text-[0.875rem] leading-5 font-medium text-ink-2 underline-offset-4 data-hovered:text-ink data-hovered:underline data-disabled:cursor-not-allowed data-disabled:opacity-40";
 
 function ChipRow({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <div role="group" aria-label={label} className="mt-1 flex flex-wrap items-center gap-x-1">
+    // No gap on the phone: the chips are already 44 px wide with their text centred, and
+    // «+1 h · +1 h 30 · +2 h» must stay on one line under «Fine» at 390.
+    <div
+      role="group"
+      aria-label={label}
+      className="mt-1 flex flex-wrap items-center gap-x-1 max-md:gap-x-0"
+    >
       {children}
     </div>
   );
@@ -134,7 +143,9 @@ export function DayField({
       <span id={labelId} className={LABEL}>
         {label}
       </span>
-      <DialogTrigger isOpen={open} onOpenChange={setOpen}>
+      {/* The trigger's own press would open the calendar too: on a phone only the native picker
+          opens (openPicker), never both at once. */}
+      <DialogTrigger isOpen={open && !mobile} onOpenChange={(next) => setOpen(next && !mobile)}>
         <AriaButton
           isDisabled={isDisabled}
           aria-labelledby={`${labelId} ${valueId}`}
@@ -262,7 +273,7 @@ function DayCalendar({
         <AriaButton slot="previous" aria-label="Mese precedente" className={NAV_BUTTON}>
           <CaretLeftIcon size={20} aria-hidden />
         </AriaButton>
-        <Heading className="font-display text-[1.0625rem] font-normal first-letter:uppercase" />
+        <Heading className="m-0 font-display text-[1.0625rem] font-normal" />
         <AriaButton slot="next" aria-label="Mese successivo" className={NAV_BUTTON}>
           <CaretRightIcon size={20} aria-hidden />
         </AriaButton>
@@ -375,7 +386,9 @@ export function TimeRangeField({
         isDisabled={isDisabled}
         isInvalid={invalid}
         validationBehavior="aria"
-        aria-describedby={cx(invalid && errorId, summaryContent ? summaryId : undefined) || undefined}
+        aria-describedby={
+          cx(invalid && errorId, summaryContent ? summaryId : undefined) || undefined
+        }
         className="min-w-0"
       >
         <Input
@@ -403,7 +416,7 @@ export function TimeRangeField({
           <span className="w-4" />
           <ChipRow label="Durata rapida">
             {quickDurations.map((duration, index) => (
-              <span key={duration} className="inline-flex items-center gap-x-1">
+              <span key={duration} className="inline-flex items-center gap-x-1 max-md:gap-x-0">
                 {index > 0 && <ChipDot />}
                 <AriaButton
                   className={CHIP}
@@ -434,7 +447,11 @@ export function TimeRangeField({
           <span>{warning}</span>
         </p>
       )}
-      <div id={summaryId} aria-live="polite" className="mt-1.5 text-[0.875rem] leading-5 text-ink-2">
+      <div
+        id={summaryId}
+        aria-live="polite"
+        className="mt-1.5 text-[0.875rem] leading-5 text-ink-2"
+      >
         {summaryContent && <p>{summaryContent}</p>}
         {note && <p className="text-ink-3">{note}</p>}
       </div>

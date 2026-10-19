@@ -20,7 +20,7 @@ export interface ButtonLookProps {
 }
 
 const BASE =
-  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xs font-ui font-semibold leading-none whitespace-nowrap select-none no-underline transition-[background-color,color,border-color,translate] data-pressed:translate-y-px active:translate-y-px data-disabled:cursor-not-allowed data-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:opacity-40";
+  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xs font-ui font-semibold leading-none whitespace-nowrap select-none no-underline transition-[background-color,color,border-color,translate] data-pressed:translate-y-px active:translate-y-px [&[aria-disabled=true]:not([data-pending])]:cursor-not-allowed [&[aria-disabled=true]:not([data-pending])]:opacity-40 [&[data-disabled]:not([data-pending])]:cursor-not-allowed [&[data-disabled]:not([data-pending])]:opacity-40 data-pending:cursor-wait";
 
 const VARIANT: Record<ButtonVariant, string> = {
   ink: "bg-ink text-on-ink data-hovered:bg-[color-mix(in_oklab,var(--rf-ink)_86%,var(--rf-paper))] hover:bg-[color-mix(in_oklab,var(--rf-ink)_86%,var(--rf-paper))]",
@@ -57,4 +57,3 @@ export function buttonClasses({
     className,
   );
 }
-

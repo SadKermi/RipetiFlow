@@ -20,9 +20,12 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (patch: ProfilePatch) => unwrap(await api.PATCH("/me", { body: patch })),
-    onSuccess: async (profile) => {
+    onSuccess: async (profile, patch) => {
       queryClient.setQueryData(queryKeys.profile(), profile);
-      await invalidateAfter(queryClient, { type: "profile" });
+      await invalidateAfter(queryClient, {
+        type: "profile",
+        timezoneChanged: patch.timezone !== undefined,
+      });
     },
   });
 }

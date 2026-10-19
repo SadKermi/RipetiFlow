@@ -29,4 +29,5 @@ export const CONTROL_BOX =
 export const HINT = "mt-1.5 text-[0.8125rem] leading-[1.125rem] text-ink-3";
 
 /** Error under the field: Warning icon + message in --rf-danger. */
-export const ERROR = "mt-1.5 flex items-start gap-1.5 text-[0.8125rem] leading-[1.125rem] text-danger";
+export const ERROR =
+  "mt-1.5 flex items-start gap-1.5 text-[0.8125rem] leading-[1.125rem] text-danger";
