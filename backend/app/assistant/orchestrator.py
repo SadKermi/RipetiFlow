@@ -3,7 +3,8 @@
 1. daily limit (app.assistant_usage, day in Europe/Rome)   2. context (today, current student)
 3. model <-> read-only tools loop (max 6 rounds, max 8 calls per round, overall time budget)
 4. structured output validated with Pydantic   5. server-side enrichment and checks of the drafts
-6. amounts in the reply checked against their sources   7. usage log (tokens, estimated cost)
+6. amounts and durations in the reply checked against their sources (D-42)
+7. usage log (tokens, estimated cost)
 """
 
 from __future__ import annotations
@@ -24,11 +25,10 @@ from app.assistant.guardrails import (
     REFUSAL_TEXT,
     UNVERIFIED_NUMBERS_TEXT,
     UNVERIFIED_NUMBERS_WITH_DRAFTS_TEXT,
-    AmountSources,
+    NumberSources,
     clean_text,
     discarded_note,
     enrich_drafts,
-    unverified_amounts,
 )
 from app.assistant.pricing import estimate_cost_microusd, price_for
 from app.assistant.providers import AssistantProvider, ChatMessage, ProviderError, ProviderResult, Usage
@@ -218,8 +218,10 @@ class Matita:
             # The refusal text is fixed in code, whatever the model wrote.
             return AssistantReply(reply=REFUSAL_TEXT, drafts=[], refused=True, usage=usage_info)
 
-        sources = AmountSources(
+        sources = NumberSources(
             tool_cents=set(ctx.known_cents),
+            tool_minutes=set(ctx.known_minutes),
+            default_lesson_minutes=int(profile["default_lesson_minutes"]),
             user_text="\n".join(t.content for t in turns if t.role == "user"),
             assistant_text="\n".join(t.content for t in turns if t.role == "assistant"),
         )
@@ -230,10 +232,10 @@ class Matita:
         # fit the turn limit (MAX_CHARS).
         note = discarded_note(enriched.discarded)
         body = clean_text(output.reply, MAX_CHARS - len(note))
-        unverified = unverified_amounts(f"{output.reply}\n{body}", enriched.allowed_cents)
+        unverified = enriched.allowed.unverified(f"{output.reply}\n{body}")
         if unverified:
-            # D-42: never show an amount that comes from no tool, no user turn and no verified draft.
-            logger.info("assistant reply replaced: unverified amounts %s", sorted(unverified))
+            # D-42: never show a number that comes from no tool, no user turn and no verified draft.
+            logger.info("assistant reply replaced: unverified numbers %s", unverified)
             body = UNVERIFIED_NUMBERS_WITH_DRAFTS_TEXT if enriched.drafts else UNVERIFIED_NUMBERS_TEXT
         if not body:
             body = EMPTY_REPLY_WITH_DRAFTS if enriched.drafts else EMPTY_REPLY

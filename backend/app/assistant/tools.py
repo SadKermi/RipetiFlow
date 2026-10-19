@@ -1,8 +1,10 @@
 """Matita's read-only tools (docs/06 §4).
 
 Every tool runs in its own READ ONLY transaction as the user (RLS), validates its arguments with
-Pydantic and returns JSON. Amounts are given both in cents and pre-formatted in Italian, so the
-model can quote them verbatim instead of computing them (D-42: numbers come from tools).
+Pydantic and returns JSON. Amounts and durations are given both as numbers (`*_cents`, `*_minutes`)
+and pre-formatted in Italian, so the model can quote them verbatim instead of computing them (D-42:
+numbers come from tools); every `*_cents` and `*_minutes` value the model received is a verified
+number for the guardrails.
 Contact details (emails, phones) are never sent to the model.
 """
 
@@ -74,7 +76,8 @@ TOOL_SPECS: list[ToolSpec] = [
     ),
     ToolSpec(
         "list_lessons",
-        "Lezioni in un intervallo di date (massimo 62 giorni), facoltativamente di un solo studente.",
+        "Lezioni in un intervallo di date (massimo 62 giorni), facoltativamente di un solo studente, "
+        "con durata e importo di ciascuna e i totali.",
         _params({"from": _DATE, "to": _DATE, "student_id": _nullable(_STUDENT_ID)}),
     ),
     ToolSpec(
@@ -127,6 +130,7 @@ class ToolContext:
     user: CurrentUser
     clock: TutorClock
     known_cents: set[int] = field(default_factory=set)
+    known_minutes: set[int] = field(default_factory=set)
     calls: list[str] = field(default_factory=list)
 
 
@@ -230,6 +234,8 @@ def _ledger_line(row: asyncpg.Record) -> dict[str, Any]:
         "kind": row["kind"],
         "description": description,
         "time": f"{row['start_time']:%H:%M}–{row['end_time']:%H:%M}" if row["start_time"] else None,
+        "duration_minutes": row["duration_minutes"],
+        "duration": format_minutes(row["duration_minutes"]) if row["duration_minutes"] else None,
         "debit_cents": row["debit_cents"],
         "credit_cents": row["credit_cents"],
         "amount": format_euro(row["debit_cents"] or row["credit_cents"]),
@@ -251,8 +257,8 @@ async def _student_overview(conn: Conn, ctx: ToolContext, args: _StudentArgs) ->
         args.student_id,
     )
     ledger = await conn.fetch(
-        """select kind, entry_date, start_time, end_time, subject_name, topic, method, note,
-                  debit_cents, credit_cents, settled, running_balance_cents
+        """select kind, entry_date, start_time, end_time, duration_minutes, subject_name, topic, method,
+                  note, debit_cents, credit_cents, settled, running_balance_cents
            from app.ledger_entries where student_id = $1
            order by entry_date desc, coalesce(start_time, time '23:59:59') desc, created_at desc limit 10""",
         args.student_id,
@@ -309,6 +315,8 @@ async def _list_lessons(conn: Conn, ctx: ToolContext, args: _RangeArgs) -> dict[
         args.to,
         args.student_id,
     )
+    total_minutes = sum(int(r["duration_minutes"]) for r in rows)
+    total_cents = sum(int(r["amount_cents"]) for r in rows)
     return {
         "lessons": [
             {
@@ -318,6 +326,7 @@ async def _list_lessons(conn: Conn, ctx: ToolContext, args: _RangeArgs) -> dict[
                 "start_time": f"{r['start_time']:%H:%M}",
                 "end_time": f"{r['end_time']:%H:%M}",
                 "duration_minutes": r["duration_minutes"],
+                "duration": format_minutes(r["duration_minutes"]),
                 "student": {
                     "id": str(r["student_id"]),
                     "name": display_name(r["first_name"], r["last_name"]),
@@ -332,6 +341,10 @@ async def _list_lessons(conn: Conn, ctx: ToolContext, args: _RangeArgs) -> dict[
             for r in rows
         ],
         "count": len(rows),
+        "total_minutes": total_minutes,
+        "total_time": format_minutes(total_minutes),
+        "total_cents": total_cents,
+        "total": format_euro(total_cents),
     }
 
 
@@ -407,6 +420,7 @@ async def _period_stats(conn: Conn, ctx: ToolContext, args: _RangeArgs) -> dict[
         "earned": format_euro(int(row["earned_cents"])),
         "scheduled_lessons": row["scheduled_lessons"],
         "scheduled_minutes": row["scheduled_minutes"],
+        "scheduled_time": format_minutes(int(row["scheduled_minutes"])),
         "scheduled_cents": int(row["scheduled_cents"]),
         "scheduled": format_euro(int(row["scheduled_cents"])),
         "collected_cents": int(row["collected_cents"]),
@@ -433,15 +447,19 @@ _HANDLERS: dict[str, tuple[type[_Args], Any]] = {
 }
 
 
-def _collect_cents(value: Any, sink: set[int], key: str = "") -> None:
+def _collect_numbers(value: Any, ctx: ToolContext, key: str = "") -> None:
+    """Every `*_cents` and `*_minutes` value of a tool result: what the guardrails may let through."""
     if isinstance(value, dict):
         for k, v in value.items():
-            _collect_cents(v, sink, k)
+            _collect_numbers(v, ctx, k)
     elif isinstance(value, list):
         for v in value:
-            _collect_cents(v, sink, key)
-    elif isinstance(value, int) and not isinstance(value, bool) and key.endswith("_cents"):
-        sink.add(abs(value))
+            _collect_numbers(v, ctx, key)
+    elif isinstance(value, int) and not isinstance(value, bool):
+        if key.endswith("_cents"):
+            ctx.known_cents.add(abs(value))
+        elif key.endswith("_minutes"):
+            ctx.known_minutes.add(abs(value))
 
 
 async def execute_tool(ctx: ToolContext, name: str, arguments: Any) -> str:
@@ -463,6 +481,6 @@ async def execute_tool(ctx: ToolContext, name: str, arguments: Any) -> str:
     text = json.dumps(payload, ensure_ascii=False, default=str)
     if len(text) > MAX_TOOL_OUTPUT_CHARS:
         return json.dumps({"error": "Troppi risultati: restringi l'intervallo o filtra per studente."})
-    # Only what the model actually received is a source of amounts (guardrails.AmountSources).
-    _collect_cents(payload, ctx.known_cents)
+    # Only what the model actually received is a source of numbers (guardrails.NumberSources).
+    _collect_numbers(payload, ctx)
     return text

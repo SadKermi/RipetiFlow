@@ -1,7 +1,8 @@
 """Matita (docs/06, docs/05 "Assistente Matita", D-40..D-42).
 
 Through the HTTP API with a scripted `FakeProvider` (no network): drafts enriched from the ledger
-(the model never sets a price), amount checks on replies and message drafts, discarded drafts,
+(the model never sets a price), checks of amounts and durations in every spelling on replies and
+drafts (D-42), discarded drafts,
 invalid output, the fixed refusal, the daily limit keyed on the Europe/Rome day, the overall time
 budget, the tool loop caps, read-only tools, prompt injection in student notes, 503 without provider.
 Then unit tests of the guardrail helpers and pricing, and of the two SDK adapters with mocked
@@ -33,13 +34,19 @@ from app.assistant.guardrails import (
     DUPLICATE_DRAFT_WARNING,
     INVALID_OUTPUT_TEXT,
     REFUSAL_TEXT,
+    UNREADABLE,
     UNSTATED_AMOUNT_WARNING,
     UNVERIFIED_NUMBERS_TEXT,
     UNVERIFIED_NUMBERS_WITH_DRAFTS_TEXT,
+    UNVERIFIED_TEXT_WARNING,
+    Allowed,
     amounts_in,
+    clean_text,
     discarded_note,
+    durations_in,
     italian_number,
     stated_cents,
+    stated_minutes,
 )
 from app.assistant.orchestrator import MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_ROUNDS, UPSTREAM_DETAIL
 from app.assistant.pricing import estimate_cost_microusd, price_for
@@ -270,7 +277,7 @@ async def test_lesson_draft_rate_and_amount_come_from_the_ledger(
         find(),
         final(
             lambda outs: output(
-                "Ho preparato la lezione di ieri con Giulia: 45,00 €.",
+                "Ho preparato la lezione di ieri con Giulia (1 h 30 min): 45,00 €.",
                 # The model tries to set a price: it is ignored (D-16, docs/06).
                 lesson(
                     found_id(outs),
@@ -288,7 +295,7 @@ async def test_lesson_draft_rate_and_amount_come_from_the_ledger(
     body = await ok(await ask(s.client, s.user, "ieri 17-18:30 mate con Giulia, equazioni"))
 
     assert body["refused"] is False
-    assert body["reply"] == "Ho preparato la lezione di ieri con Giulia: 45,00 €."
+    assert body["reply"] == "Ho preparato la lezione di ieri con Giulia (1 h 30 min): 45,00 €."
     assert body["usage"] == {"requests_today": 1, "daily_limit": 60}
     [draft] = body["drafts"]
     assert draft["type"] == "lesson"
@@ -575,6 +582,186 @@ async def test_follow_up_turn_may_repeat_amounts_from_earlier_turns(
     sent = provider.calls[0]["messages"]
     assert [m.role for m in sent] == ["user", "assistant", "user"]
     assert sent[1].content == "Giulia ti deve 30,00 €."
+
+
+# ---------------------------------------------------------------------------------------------
+# Numbers in every spelling, durations, invisible characters (D-42)
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        pytest.param("Giulia ti deve EUR 999.", id="currency-code-first"),
+        pytest.param("Giulia ti deve Euro 999,00.", id="currency-word-first"),
+        pytest.param("Giulia ti deve 999.30 €.", id="dot-decimals"),
+        pytest.param("Giulia ti deve 1 030,00 €.", id="space-thousands"),
+        pytest.param("Giulia ti deve 1 030,00 €.", id="no-break-space-thousands"),
+        pytest.param("Giulia ti deve 999,00.", id="no-currency"),
+        pytest.param("Giulia ti deve novecentonovantanove euro.", id="in-words"),
+        pytest.param("Giulia ti deve tra 25 e 30 €.", id="range"),
+        pytest.param("Giulia ti deve 9​30,00 €.", id="zero-width-space"),
+        pytest.param("Giulia ti deve 3⁠30,00 €.", id="word-joiner"),
+        pytest.param("Giulia ti deve 30.30,00 €.", id="unreadable"),
+    ],
+)
+async def test_amounts_in_any_spelling_are_checked(app_client: AppFactory, make_user: Any, reply: str) -> None:
+    s = await giulia_with_debt(app_client, make_user, fake(find(), final(output(reply))))
+    body = await ok(await ask(s.client, s.user, "quanto mi deve Giulia?"))
+    assert body["reply"] == UNVERIFIED_NUMBERS_TEXT
+
+
+async def test_verified_amounts_may_be_written_in_any_spelling(app_client: AppFactory, make_user: Any) -> None:
+    reply = "Giulia ti deve 30,00 € (€30, EUR 30, 30 euro, trenta euro, 30.00 €, 30,00); 1 h di lezione."
+    s = await giulia_with_debt(app_client, make_user, fake(find(), final(output(reply))))
+    body = await ok(await ask(s.client, s.user, "quanto mi deve Giulia?"))
+    assert body["reply"] == reply
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        pytest.param("3 ore", id="digits"),
+        pytest.param("tre ore", id="words"),
+        pytest.param("1 h 45 min", id="hours-and-minutes"),
+        pytest.param("un'ora e tre quarti", id="fractions"),
+        pytest.param("105 minuti", id="minutes"),
+        pytest.param("1,75 ore", id="decimal-hours"),
+        pytest.param("2​0 ore", id="zero-width-space"),
+    ],
+)
+async def test_durations_in_the_reply_are_checked(app_client: AppFactory, make_user: Any, said: str) -> None:
+    provider = fake(find(), final(output(f"Ieri Giulia ha fatto {said} di lezione.")))
+    s = await giulia_with_debt(app_client, make_user, provider)
+    body = await ok(await ask(s.client, s.user, "quanto ha fatto Giulia ieri?"))
+    assert body["reply"] == UNVERIFIED_NUMBERS_TEXT
+
+
+@pytest.mark.parametrize("tool", [None, "list_lessons", "get_student_overview", "period_stats"])
+async def test_durations_returned_by_the_tools_are_shown(
+    app_client: AppFactory, make_user: Any, tool: str | None
+) -> None:
+    reply = "Ieri Giulia ha fatto un'ora e mezza di lezione (1 h 30 min)."
+    provider = fake(final(output(reply)))
+    client = await app_client(assistant_provider=provider)
+    user = await make_user()
+    giulia = await create_student(client, user, "Giulia", rate_cents=3000)
+    await create_lesson(client, user, giulia["id"], days(-1), "15:00", "16:30")
+    if tool == "get_student_overview":
+        provider.steps.insert(0, FakeStep(tool_calls=[(tool, {"student_id": giulia["id"]})]))
+    elif tool is not None:
+        window = {"from": str(days(-1)), "to": str(days(-1)), "student_id": giulia["id"]}
+        provider.steps.insert(0, FakeStep(tool_calls=[(tool, window)]))
+    body = await ok(await ask(client, user, "quanto ha fatto Giulia ieri?"))
+    # 90 minutes is no default lesson length (60): only a tool result makes it a verified number.
+    assert body["reply"] == (UNVERIFIED_NUMBERS_TEXT if tool is None else reply)
+
+
+async def test_numbers_in_message_drafts_are_checked_in_every_spelling(
+    app_client: AppFactory, make_user: Any
+) -> None:
+    kept_text = "Gentile signora, il saldo di Giulia è di 30,00 € per un'ora di lezione."
+    provider = fake(
+        find(),
+        final(
+            output(
+                "Ecco i messaggi.",
+                message("Gentile signora, il saldo di Giulia è di EUR 999."),
+                message("Gentile signora, il saldo di Giulia è di 9​30,00 €."),
+                message("Gentile signora, ieri Giulia ha fatto 3 ore di lezione."),
+                message("Gentile signora, il saldo è di 30,00 €.", recipient="mamma di Giulia (deve 999 €)"),
+                message(kept_text),
+            )
+        ),
+    )
+    s = await giulia_with_debt(app_client, make_user, provider)
+    body = await ok(await ask(s.client, s.user, "scrivi alla mamma di Giulia"))
+    [kept] = body["drafts"]
+    assert kept["text"] == kept_text
+    assert body["reply"] == (
+        "Ecco i messaggi.\n\nNota: ho scartato 4 bozze (messaggio con importi non verificati sul registro; "
+        "messaggio con ore non verificate sul registro)."
+    )
+
+
+@pytest.mark.parametrize("amount", ["30,00 €", "16,00 €", "15,00 €", "6,00 €", "10,00 €"])
+async def test_clock_times_and_dates_the_user_wrote_are_not_amounts(
+    app_client: AppFactory, make_user: Any, amount: str
+) -> None:
+    s = await giulia_with_debt(app_client, make_user, fake(final(output(f"Ti deve {amount}."))))
+    body = await ok(await ask(s.client, s.user, "segna la lezione di Giulia del 06/10, 15-16:30"))
+    assert body["reply"] == UNVERIFIED_NUMBERS_TEXT
+
+
+async def test_numbers_the_user_wrote_in_words_may_be_repeated(app_client: AppFactory, make_user: Any) -> None:
+    reply = "Ho preparato il pagamento di 30,00 € (trenta euro): lezione di un'ora e mezza, 50 minuti di ripasso."
+    provider = fake(final(output("placeholder")))
+    s = await giulia_with_debt(app_client, make_user, provider)
+    provider.steps[-1] = final(output(reply, payment(s.giulia["id"], 3000)))
+    body = await ok(
+        await ask(
+            s.client, s.user, "Giulia mi ha dato trenta euro; ieri un'ora e mezza, cinquanta minuti di ripasso"
+        )
+    )
+    assert body["reply"] == reply
+    [draft] = body["drafts"]
+    assert draft["warnings"] == []
+
+
+async def test_follow_up_may_repeat_durations_from_earlier_turns(app_client: AppFactory, make_user: Any) -> None:
+    text = "Gentile signora, ieri Giulia ha fatto 2 ore e mezza di lezione."
+    provider = fake(final(output("Ecco il messaggio (2 h 30 min).", message(text))))
+    s = await giulia_with_debt(app_client, make_user, provider)
+    body = await ok(
+        await ask(
+            s.client,
+            s.user,
+            "quanto ha fatto Giulia ieri?",
+            ("assistant", "Ieri Giulia ha fatto 2 h 30 min di lezione."),
+            "scrivilo alla mamma",
+        )
+    )
+    assert body["reply"] == "Ecco il messaggio (2 h 30 min)."
+    assert [d["text"] for d in body["drafts"]] == [text]
+
+
+async def test_totals_of_the_lesson_drafts_may_be_shown(app_client: AppFactory, make_user: Any) -> None:
+    reply = "Ho preparato 3 lezioni da 1 h 30 min: 4 h 30 min e 135,00 € in tutto."
+
+    def answer(outs: list[Any]) -> dict[str, Any]:
+        sid = found_id(outs)
+        return output(reply, *[lesson(sid, days(-n), "15:00", "16:30") for n in (2, 3, 4)])
+
+    s = await giulia_with_debt(app_client, make_user, fake(find(), final(answer)))
+    body = await ok(await ask(s.client, s.user, "le ultime tre lezioni con Giulia"))
+    assert [d["amount_cents"] for d in body["drafts"]] == [4500] * 3
+    assert body["reply"] == reply
+
+
+async def test_unverified_numbers_in_the_free_text_of_drafts_get_a_warning(
+    app_client: AppFactory, make_user: Any
+) -> None:
+    def answer(outs: list[Any]) -> dict[str, Any]:
+        sid = found_id(outs)
+        return output(
+            "Ecco le bozze.",
+            lesson(sid, days(-2), topic="ripasso, saldo EUR 999"),
+            lesson(sid, days(-3), notes="fatte 3 ore"),
+            lesson(sid, days(-4), topic="equazioni di 2 grado", notes="1 h, come al solito; 50 euro"),
+            {**payment(sid, 5000), "note": "acconto su 999,00"},
+            {**payment(sid, 5000, days(-1)), "note": "contanti, 50 €"},
+        )
+
+    s = await giulia_with_debt(app_client, make_user, fake(find(), final(answer)))
+    body = await ok(await ask(s.client, s.user, "Giulia mi ha dato 50 euro oggi e 50 ieri"))
+    assert [d["warnings"] for d in body["drafts"]] == [
+        [UNVERIFIED_TEXT_WARNING],
+        [UNVERIFIED_TEXT_WARNING],
+        [],  # the default lesson length (1 h) and an amount the user stated
+        [UNVERIFIED_TEXT_WARNING],
+        [],
+    ]
+    assert body["reply"] == "Ecco le bozze."
 
 
 async def test_leading_assistant_turns_are_dropped(app_client: AppFactory, make_user: Any) -> None:
@@ -920,10 +1107,81 @@ async def test_tools_are_read_only_and_whitelisted(
         ("costa 30 euro l'ora, 37,5 EUR in tutto", {3000, 3750}),
         ("-25,00 €", {2500}),
         ("alle 15:00 per 2 ore", set()),  # no currency marker: not an amount
+        pytest.param("€45 e €45,50; € 45-50", {4500, 4550, 5000}, id="currency-sign-first"),
+        pytest.param("EUR 45 · Euro 12,00 · eur 7", {4500, 1200, 700}, id="currency-word-first"),
+        pytest.param("45.50 € e 1,234.50 €", {4550, 123450}, id="english-separators"),
+        pytest.param(
+            "1 234,00 € · 2\u00a0345,00 € · 3\u202f456,00 € · 4 567,00", {123400, 234500, 345600, 456700},
+            id="space-thousands",
+        ),
+        pytest.param("Giulia ti deve 45,00, Marco 1.234,50.", {4500, 123450}, id="two-decimals-no-currency"),
+        pytest.param("trenta euro, milleduecento €, mille e duecento euro", {3000, 120000}, id="in-words"),
+        pytest.param("tra 45 e 50 €, oppure 60–70 €", {4500, 5000, 6000, 7000}, id="ranges"),
+        pytest.param("9\u200b30,00 € e 1\u2060\u200d5,00 €", {93000, 1500}, id="invisible-characters"),
+        pytest.param("４５,００ € e ⁴⁵ €", {4500}, id="compatibility-digits"),
+        pytest.param("1.2345 € e 30.30,00 €", {UNREADABLE}, id="unreadable"),
+        pytest.param(
+            "alle 16,30 dalle 15.00; il 06/10/2026; nel 2025 con 2 studenti; tel. 333 1234567", set(),
+            id="clock-dates-years-counts-phones",
+        ),
+        pytest.param("il 33,33% delle lezioni, 1,50 ore, 2,50 km, voto 7,50/10", set(), id="units"),
+        pytest.param("30,00 €/h, cioè 30 € all'ora, 30 € 2 volte a settimana", {3000}, id="rates"),
+        pytest.param("non ti deve neanche un euro; Europa, europeo", set(), id="not-amounts"),
     ],
 )
 def test_amounts_in(text: str, cents: set[int]) -> None:
     assert amounts_in(text) == cents
+
+
+@pytest.mark.parametrize(
+    ("text", "minutes"),
+    [
+        ("2 ore; 1 ora; 2h", {120, 60}),
+        ("1 h 30 min · 1h30 · 1 ora e 30 minuti · un'ora e mezza · un’ora e mezzo", {90}),
+        ("due ore e un quarto", {135}),
+        ("1 ora e tre quarti · un'ora e tre quarti · 1 h 45 min · 105 minuti · 1,75 ore", {105}),
+        ("un'ora e quindici minuti", {75}),
+        ("90 minuti · 90 min · novanta minuti · 1,5 ore · 1.5 h · 1:30 h", {90}),
+        ("mezz'ora · mezza ora · trenta minuti", {30}),
+        ("un quarto d'ora; tre quarti d'ora", {15, 45}),
+        ("1,30 ore", {78, 90}),  # decimal hours, or "1 h 30" written with a comma
+        ("2\u200b0 ore", {1200}),
+        ("alle ore 16; dalle 15:00 alle 16:30; alle 16h; il 06/10", set()),
+        ("30,00 €/h, 30 € all'ora, 30 € l'ora, 30 € per un'ora, 30 €/ora", set()),
+        ("Sei ora in pari; per ora nessuna lezione; e ora? l'ultima ora", set()),
+        ("2 studenti, 3 lezioni, nel 2025, il 20%, 2 ore e 3 lezioni", {120}),
+        ("ottobre, orecchio, minimo, hotel, pochi minuti", set()),
+    ],
+)
+def test_durations_in(text: str, minutes: set[int]) -> None:
+    assert {m for d in durations_in(text) for m in d.readings} == minutes
+
+
+def test_approximate_durations_get_a_small_tolerance() -> None:
+    allowed = Allowed(cents={3000}, minutes={133})
+    assert allowed.unverified("circa 2 ore, quasi 2 h 15 min, più di 2 ore") == []
+    assert allowed.unverified("2 ore e 13 minuti") == []
+    assert allowed.unverified("2 ore, circa 3 ore, 30,00 €, 999,00 €, 1.2345 €") == [
+        "importo illeggibile",
+        "999,00 €",
+        "2 h",
+        "3 h",
+    ]
+
+
+def test_clock_times_and_dates_are_not_numbers_the_user_stated() -> None:
+    cents = stated_cents("lezione alle 16:30 del 06/10/2026 (2026-10-06), ieri 15-16:30, dalle 17 alle 18.30")
+    assert cents == set()
+    minutes = stated_minutes("alle 16:30 del 06/10, un'ora e mezza")
+    assert minutes == {1, 60, 90}  # "un" read leniently as 1 minute or 1 hour
+    assert {120, 2, 50, 3000} <= stated_minutes("2 ore, e mi ha dato 50 euro")
+
+
+def test_clean_text_shows_what_is_checked() -> None:
+    # Invisible format characters go; any space becomes a plain one (and runs collapse).
+    assert clean_text("9\u200b30,00\u2060 €\u202e") == "930,00 €"
+    assert clean_text("1\u00a0234,00\u202f€  e\u2009\u2009basta") == "1 234,00 € e basta"
+    assert amounts_in(clean_text("3\u206030,00 €")) == {33000}
 
 
 @pytest.mark.parametrize(
@@ -953,6 +1211,7 @@ def test_stated_cents_reads_what_the_user_typed_leniently() -> None:
     )
     assert {5000, 3700, 3750, 120000} <= cents
     assert stated_cents("Mi ha dato centoventi €") >= {12000}
+    assert stated_cents("trenta euro e cinquanta") >= {3000, 5000}
     assert 99900 not in stated_cents("Giulia mi ha pagato oggi")
 
 
